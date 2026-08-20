@@ -1,0 +1,1056 @@
+{
+ "model": "lid.176.ftz",
+ "k": 5,
+ "cases": [
+  {
+   "text": "Привет, как дела? Сегодня отличная погода.",
+   "predictions": [
+    {
+     "label": "ru",
+     "probability": 0.984448791
+    },
+    {
+     "label": "be",
+     "probability": 0.004200175
+    },
+    {
+     "label": "bg",
+     "probability": 0.003385974
+    },
+    {
+     "label": "uk",
+     "probability": 0.002782254
+    },
+    {
+     "label": "cv",
+     "probability": 0.000969892
+    }
+   ],
+   "sentenceVector": "4765f0be0424f03ec320423e46585bbfd27629bf957090bf6ffa393f24322240bbf85a3f9838b43e073404bf7cf5b13ee541f63db25db03ef62a7b3f6e6ed5bf"
+  },
+  {
+   "text": "The quick brown fox jumps over the lazy dog",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.720583916
+    },
+    {
+     "label": "es",
+     "probability": 0.041742511
+    },
+    {
+     "label": "nl",
+     "probability": 0.025787214
+    },
+    {
+     "label": "pt",
+     "probability": 0.023183312
+    },
+    {
+     "label": "ru",
+     "probability": 0.016246134
+    }
+   ],
+   "sentenceVector": "ed5626be3e7b693e44fc35bf3b5c81bd188d173e5491dbbc0981a83e918252bd1ae1d7be29df13bfd2db753d197e5abe47754a3efc1b823d434eef3b257fa13e"
+  },
+  {
+   "text": "Bonjour tout le monde, comment allez-vous ?",
+   "predictions": [
+    {
+     "label": "fr",
+     "probability": 0.986674249
+    },
+    {
+     "label": "en",
+     "probability": 0.003888131
+    },
+    {
+     "label": "it",
+     "probability": 0.001494371
+    },
+    {
+     "label": "es",
+     "probability": 0.000965869
+    },
+    {
+     "label": "nl",
+     "probability": 0.000717869
+    }
+   ],
+   "sentenceVector": "5e81c6bfe7492abf518e213f5d9f6f3f330287beba93023d53b5c2bf6b3a01bfabfe42bfd4a3003fa926833f0ef6cd3ef8a7ccbdb237843ffb8431bf902ca3bf"
+  },
+  {
+   "text": "Die Katze sitzt auf der Matte und schläft",
+   "predictions": [
+    {
+     "label": "de",
+     "probability": 0.999351323
+    },
+    {
+     "label": "bar",
+     "probability": 0.000149332
+    },
+    {
+     "label": "ru",
+     "probability": 0.000134124
+    },
+    {
+     "label": "en",
+     "probability": 9.9323e-05
+    },
+    {
+     "label": "als",
+     "probability": 5.9762e-05
+    }
+   ],
+   "sentenceVector": "293e873f589885bf24d0843ff923463fbef3074015fd1bc01db51bc072c8303fdc101d40e50bae3fe757983e15b732bffe25853fc030053f3988abbe701eda3e"
+  },
+  {
+   "text": "El rápido zorro marrón salta sobre el perro perezoso",
+   "predictions": [
+    {
+     "label": "es",
+     "probability": 0.937199235
+    },
+    {
+     "label": "pt",
+     "probability": 0.033231445
+    },
+    {
+     "label": "ca",
+     "probability": 0.009564638
+    },
+    {
+     "label": "gl",
+     "probability": 0.007874821
+    },
+    {
+     "label": "en",
+     "probability": 0.00579052
+    }
+   ],
+   "sentenceVector": "eb9bbcbfaefc86bf26b5a0bea6c9f6bf4fbca33ea21f44bfe9a8833fc70d5fbf77a5063e9857413f57db50bf5fcaf83e675c23bf8ae0f83dffdc9abd5f3fd13e"
+  },
+  {
+   "text": "Il gatto si siede sul tappeto e dorme tranquillo",
+   "predictions": [
+    {
+     "label": "it",
+     "probability": 0.627433956
+    },
+    {
+     "label": "fr",
+     "probability": 0.200595155
+    },
+    {
+     "label": "de",
+     "probability": 0.054451276
+    },
+    {
+     "label": "la",
+     "probability": 0.009287745
+    },
+    {
+     "label": "sl",
+     "probability": 0.008045508
+    }
+   ],
+   "sentenceVector": "65189fbe19f351bfaaf1fe3eac5e7d3f1e8f1cbec8538e3ed1d8b4bfc0ade4bda4e2bbbe24f3c13efa6d16bf3245233d3b5dadbf59b3f43d8ed21e3f256d093f"
+  },
+  {
+   "text": "O rápido cão castanho salta sobre o cão preguiçoso",
+   "predictions": [
+    {
+     "label": "pt",
+     "probability": 0.766540229
+    },
+    {
+     "label": "es",
+     "probability": 0.145638987
+    },
+    {
+     "label": "en",
+     "probability": 0.037588652
+    },
+    {
+     "label": "ca",
+     "probability": 0.018672694
+    },
+    {
+     "label": "gl",
+     "probability": 0.012020261
+    }
+   ],
+   "sentenceVector": "ceef07bf0c07a2bfa86d9abe45d4dfbff8718abe071d0abf67b48b3f472459bf225a27bfc485153fc35d97bdf1503ebff3c81ebfa18c893e77e7773f01d27b3f"
+  },
+  {
+   "text": "Wie gaat het met jou vandaag mijn vriend",
+   "predictions": [
+    {
+     "label": "nl",
+     "probability": 0.992647171
+    },
+    {
+     "label": "af",
+     "probability": 0.004066456
+    },
+    {
+     "label": "en",
+     "probability": 0.001512582
+    },
+    {
+     "label": "de",
+     "probability": 0.000585554
+    },
+    {
+     "label": "ru",
+     "probability": 0.000563712
+    }
+   ],
+   "sentenceVector": "79f8f2bf2f8bc13fb9f8b2bee4e10d40d65898be3acf0fc01b9891bef39f5ebfdbb9053ff3891ebfb592013fd881ccbf93bd00bf54411ebf0ae015400822fabf"
+  },
+  {
+   "text": "Szybki brązowy lis przeskakuje nad leniwym psem",
+   "predictions": [
+    {
+     "label": "pl",
+     "probability": 0.994462788
+    },
+    {
+     "label": "en",
+     "probability": 0.001576934
+    },
+    {
+     "label": "de",
+     "probability": 0.00101115
+    },
+    {
+     "label": "cs",
+     "probability": 0.000485858
+    },
+    {
+     "label": "ru",
+     "probability": 0.000459997
+    }
+   ],
+   "sentenceVector": "d3e874bf72d7c5bea23400c03dc4313d675d663f97e708bf2f5d343e1b4e233e85efdb3fee5e6d3e2d7a85be943b303f4a18f5bfe83469bf233879bf576090bf"
+  },
+  {
+   "text": "Мова програмування Dart створена компанією Google",
+   "predictions": [
+    {
+     "label": "uk",
+     "probability": 0.984416008
+    },
+    {
+     "label": "be",
+     "probability": 0.012404285
+    },
+    {
+     "label": "bg",
+     "probability": 0.001768512
+    },
+    {
+     "label": "ru",
+     "probability": 0.000673862
+    },
+    {
+     "label": "sr",
+     "probability": 0.000182233
+    }
+   ],
+   "sentenceVector": "736c023fe07795be9829cbbf01e29abf63f6e4be082f50bf763f203f207948407124a13fc3b6bf3d7348dfbf55e781bf5c31f3bf826cff3f342aa2bd6a161bc0"
+  },
+  {
+   "text": "Беларуская мова належыць да ўсходнеславянскай групы",
+   "predictions": [
+    {
+     "label": "be",
+     "probability": 0.83066237
+    },
+    {
+     "label": "bg",
+     "probability": 0.056372132
+    },
+    {
+     "label": "cv",
+     "probability": 0.0278566
+    },
+    {
+     "label": "no",
+     "probability": 0.018207185
+    },
+    {
+     "label": "ka",
+     "probability": 0.016760444
+    }
+   ],
+   "sentenceVector": "10cbca3f9a60c93c307787bf416113bf4b8c7ebf01c2783f6a9eacbe46d6e13f3aef9fbbce2b21bf4a0907bf5eb448be9bde56befe22b43e8cfea03f602a0e3d"
+  },
+  {
+   "text": "Българският език е индоевропейски език от славянската група",
+   "predictions": [
+    {
+     "label": "bg",
+     "probability": 0.982126236
+    },
+    {
+     "label": "vi",
+     "probability": 0.009069622
+    },
+    {
+     "label": "ceb",
+     "probability": 0.002760485
+    },
+    {
+     "label": "be",
+     "probability": 0.002076413
+    },
+    {
+     "label": "en",
+     "probability": 0.001863915
+    }
+   ],
+   "sentenceVector": "9487274042bdd73ecf546ebf9e67c3bf5c9feabfb1072d3e87916dbe4c5e18405b1b9fbffc5fc73dec90c2be881fc83e7aca3c3cba087a3f5c83743f0ce44ebf"
+  },
+  {
+   "text": "Rychlá hnědá liška skáče přes líného psa",
+   "predictions": [
+    {
+     "label": "cs",
+     "probability": 0.994161725
+    },
+    {
+     "label": "sk",
+     "probability": 0.002195344
+    },
+    {
+     "label": "bs",
+     "probability": 0.000997724
+    },
+    {
+     "label": "en",
+     "probability": 0.000590085
+    },
+    {
+     "label": "ro",
+     "probability": 0.000375514
+    }
+   ],
+   "sentenceVector": "e241b9bf94c8a1bfe8bda9bd55c503c0cef8ac3e3302f23dac682dc077fb213f428c13400a842a3e5e8ac73f4ed93d3f8ec9323ee2b6dfbf801b09bf289bb63f"
+  },
+  {
+   "text": "Den snabba bruna räven hoppar över den lata hunden",
+   "predictions": [
+    {
+     "label": "sv",
+     "probability": 0.982590079
+    },
+    {
+     "label": "ru",
+     "probability": 0.003830254
+    },
+    {
+     "label": "nl",
+     "probability": 0.00330022
+    },
+    {
+     "label": "de",
+     "probability": 0.001994768
+    },
+    {
+     "label": "pl",
+     "probability": 0.001870391
+    }
+   ],
+   "sentenceVector": "ae86abbf60a4943f9f9d58bf4709a23d2bf6813feec0373ea771053f2effbf3e565f963f78c21e40efe13a3fc7a5b13e1d12873e3bda3abea8d8d43fe36e44bf"
+  },
+  {
+   "text": "Nopea ruskea kettu hyppää laiskan koiran yli",
+   "predictions": [
+    {
+     "label": "fi",
+     "probability": 0.943098724
+    },
+    {
+     "label": "en",
+     "probability": 0.021473616
+    },
+    {
+     "label": "it",
+     "probability": 0.008391182
+    },
+    {
+     "label": "hr",
+     "probability": 0.003306441
+    },
+    {
+     "label": "de",
+     "probability": 0.00253897
+    }
+   ],
+   "sentenceVector": "ded741be523e963ece27afbd9e21803eca258e3e403f33be17e20dc0d8537fbe1a66a3beff52203fb6ff89be6fb2d2bfb2db813fd884cebfd21e48bf669816bd"
+  },
+  {
+   "text": "Hızlı kahverengi tilki tembel köpeğin üzerinden atlar",
+   "predictions": [
+    {
+     "label": "tr",
+     "probability": 0.980623782
+    },
+    {
+     "label": "en",
+     "probability": 0.004758948
+    },
+    {
+     "label": "az",
+     "probability": 0.003272621
+    },
+    {
+     "label": "hu",
+     "probability": 0.002683023
+    },
+    {
+     "label": "uz",
+     "probability": 0.001853071
+    }
+   ],
+   "sentenceVector": "6ea6b83f6a806fbf1b5185bea6dde73d0cd849bf489b1840b79d0bbd98e0253e86ed423f36c80bbe9c29bebd28930abfc32bcc3e286118be4c60dd3fd95962be"
+  },
+  {
+   "text": "اللغة العربية من أقدم اللغات السامية",
+   "predictions": [
+    {
+     "label": "ar",
+     "probability": 0.995752811
+    },
+    {
+     "label": "arz",
+     "probability": 0.002540281
+    },
+    {
+     "label": "uk",
+     "probability": 0.000348217
+    },
+    {
+     "label": "fa",
+     "probability": 0.000336735
+    },
+    {
+     "label": "es",
+     "probability": 0.000246734
+    }
+   ],
+   "sentenceVector": "379685be3daa443f6d1bc3bf0c3a0fc04336efbf9bc9c2bf23be0ebd73c8b6bf39e46840955c74be4babccbf4962c7be4811053fd37d37400be231bfe261e3bf"
+  },
+  {
+   "text": "השפה העברית היא שפה שמית עתיקה",
+   "predictions": [
+    {
+     "label": "he",
+     "probability": 1.00003624
+    },
+    {
+     "label": "en",
+     "probability": 1.7033e-05
+    },
+    {
+     "label": "ru",
+     "probability": 1.2239e-05
+    },
+    {
+     "label": "yi",
+     "probability": 1.1243e-05
+    },
+    {
+     "label": "de",
+     "probability": 1.001e-05
+    }
+   ],
+   "sentenceVector": "79241fbedf48eb3f5c7078400fd009c086031240a3bdc43c3f60a8c067b1a6bf8da7894096f5acc0eb004fbe1150c9bf3932ce3f9052c8bf8efdb7bfaab785c0"
+  },
+  {
+   "text": "زبان فارسی یکی از زبان‌های هندواروپایی است",
+   "predictions": [
+    {
+     "label": "fa",
+     "probability": 0.991227269
+    },
+    {
+     "label": "mzn",
+     "probability": 0.005229618
+    },
+    {
+     "label": "azb",
+     "probability": 0.00127582
+    },
+    {
+     "label": "ar",
+     "probability": 0.000379921
+    },
+    {
+     "label": "ml",
+     "probability": 0.000297421
+    }
+   ],
+   "sentenceVector": "0bf00c3f208baf3f60f6893f6fef84bf70e61ec0be833b3e33e14dc0c30cccbf9bf32c4008318e3f5c1dc8bf0bd78dbf9acafa3f986505bf724693bfee52bcbb"
+  },
+  {
+   "text": "हिन्दी भारत की राजभाषा है",
+   "predictions": [
+    {
+     "label": "hi",
+     "probability": 0.980781496
+    },
+    {
+     "label": "ne",
+     "probability": 0.005281815
+    },
+    {
+     "label": "new",
+     "probability": 0.004412766
+    },
+    {
+     "label": "sa",
+     "probability": 0.002990747
+    },
+    {
+     "label": "dty",
+     "probability": 0.001582805
+    }
+   ],
+   "sentenceVector": "ab886cc0118caabf427ad13ff73234bf1885fbbf8d6d0140824af6be2d5cec3e1fb9e03fcf94c0bff3f097bffacb903eb84966406e81b9beeb88583f9fa94b3f"
+  },
+  {
+   "text": "ภาษาไทยเป็นภาษาราชการของประเทศไทย",
+   "predictions": [
+    {
+     "label": "th",
+     "probability": 0.99965483
+    },
+    {
+     "label": "fa",
+     "probability": 0.000158737
+    },
+    {
+     "label": "bn",
+     "probability": 0.000142044
+    },
+    {
+     "label": "ca",
+     "probability": 9.4784e-05
+    },
+    {
+     "label": "nl",
+     "probability": 1.703e-05
+    }
+   ],
+   "sentenceVector": "e2db76c03f98a640f9aababe6534c2bd8a600abf0b2b90c0aaec8cbe9da398bfaa5980bf7e1e4fbef111d0bf28e9bfbf6f47914078c68bbfd8f8e3bf45bdabbf"
+  },
+  {
+   "text": "今日はいい天気ですね",
+   "predictions": [
+    {
+     "label": "ja",
+     "probability": 0.995337129
+    },
+    {
+     "label": "es",
+     "probability": 0.002533488
+    },
+    {
+     "label": "zh",
+     "probability": 0.001206296
+    },
+    {
+     "label": "en",
+     "probability": 0.000309899
+    },
+    {
+     "label": "ru",
+     "probability": 0.00023303
+    }
+   ],
+   "sentenceVector": "b7709dbf33998c3f07d91f3efdb0fd3d26db3c3f256c5fbd6f79e03fcc83c33e72db573ff2b4cd3f3b9404c0006f2cbebf8eb4be14d7823fcb3002c04d198ebf"
+  },
+  {
+   "text": "中文是世界上使用人数最多的语言",
+   "predictions": [
+    {
+     "label": "zh",
+     "probability": 0.995886683
+    },
+    {
+     "label": "ja",
+     "probability": 0.004095232
+    },
+    {
+     "label": "wuu",
+     "probability": 6.2668e-05
+    }
+   ],
+   "sentenceVector": "e4c7bfbfc6488ebdd7a30b3fdeb47b3fd7f582bf66ac15407fe3223ebdf4ed3fc8cb1c3fbc845b409112f9bfc7db1dbef6996d3f44d31040557197c072c023bf"
+  },
+  {
+   "text": "한국어는 한반도에서 사용되는 언어입니다",
+   "predictions": [
+    {
+     "label": "ko",
+     "probability": 1.000063896
+    },
+    {
+     "label": "en",
+     "probability": 1.0119e-05
+    },
+    {
+     "label": "tr",
+     "probability": 1e-05
+    }
+   ],
+   "sentenceVector": "c96cd33f7b9d833f6353edbef8ad003eb0a9a4bf8b76db40000450be2212d63f6e8877bf52e84c3f46bdd2c03d5a8d3f0abead3fb9b83f4073d0a63fe829a73f"
+  },
+  {
+   "text": "Tiếng Việt là ngôn ngữ chính thức của Việt Nam",
+   "predictions": [
+    {
+     "label": "vi",
+     "probability": 0.999144316
+    },
+    {
+     "label": "sv",
+     "probability": 0.000210507
+    },
+    {
+     "label": "en",
+     "probability": 0.000142611
+    },
+    {
+     "label": "war",
+     "probability": 0.000117451
+    },
+    {
+     "label": "bg",
+     "probability": 9.0634e-05
+    }
+   ],
+   "sentenceVector": "3da9f93fc339713ffd4ed9bf2c71c7bf33889dbfffc1523e981b08c071de833fe2cb42c0ca76ea3fee32f0bfcf69c33ff5afec3da80ee03ffd89783f62d40c3f"
+  },
+  {
+   "text": "Η ελληνική γλώσσα έχει μακρά ιστορία",
+   "predictions": [
+    {
+     "label": "el",
+     "probability": 0.994284213
+    },
+    {
+     "label": "ja",
+     "probability": 0.001590511
+    },
+    {
+     "label": "en",
+     "probability": 0.000755727
+    },
+    {
+     "label": "de",
+     "probability": 0.000729896
+    },
+    {
+     "label": "kn",
+     "probability": 0.000641618
+    }
+   ],
+   "sentenceVector": "f07289bffa4223c01942b93fdb14aabeaab6b63fa9d72abfaf0690bf902509407483b4be3b2f5dbf3271efbf52ffd43fb17e4540b480563f4225e3bff2979cbf"
+  },
+  {
+   "text": "ქართული ენა არის საქართველოს ოფიციალური ენა",
+   "predictions": [
+    {
+     "label": "ka",
+     "probability": 0.988744915
+    },
+    {
+     "label": "xmf",
+     "probability": 0.011231658
+    },
+    {
+     "label": "ru",
+     "probability": 4.728e-05
+    },
+    {
+     "label": "be",
+     "probability": 2.2827e-05
+    },
+    {
+     "label": "br",
+     "probability": 2.1677e-05
+    }
+   ],
+   "sentenceVector": "59a0c43f246010403f5857bf66142dc08485fdbf182fe63ebdfaa93eb6c5294049deb2bfac6634c066071fc04572a0c0535fc23f02c85b3f46b6f5407bfdd3bf"
+  },
+  {
+   "text": "Հայերենը հնդեվրոպական լեզու է",
+   "predictions": [
+    {
+     "label": "hy",
+     "probability": 1.000047565
+    },
+    {
+     "label": "ru",
+     "probability": 1.6721e-05
+    },
+    {
+     "label": "th",
+     "probability": 1.5691e-05
+    },
+    {
+     "label": "my",
+     "probability": 1.4515e-05
+    },
+    {
+     "label": "nl",
+     "probability": 1.1789e-05
+    }
+   ],
+   "sentenceVector": "d4b41cc0a3e43c40f0501f40c050163f84c5283f5e942bc04eca254099b72b3f0a1e6940f750ae3ea65fadc0cf208ec0220360405f8446c0e4728040ac2ef8bc"
+  },
+  {
+   "text": "Bahasa Indonesia adalah bahasa resmi Republik Indonesia",
+   "predictions": [
+    {
+     "label": "id",
+     "probability": 0.970528483
+    },
+    {
+     "label": "ms",
+     "probability": 0.020820815
+    },
+    {
+     "label": "en",
+     "probability": 0.002086956
+    },
+    {
+     "label": "jv",
+     "probability": 0.001080038
+    },
+    {
+     "label": "ca",
+     "probability": 0.001007351
+    }
+   ],
+   "sentenceVector": "971603c05f38abbec0c43cbfc4dfa03fe214c0bf57736e3ecefd8e3fc8c38c3ccb46813f016a0c40a30ebebee7f7473f64d6b93f62c6a8bfdae8843f379a41bd"
+  },
+  {
+   "text": "Kiswahili ni lugha inayozungumzwa Afrika Mashariki",
+   "predictions": [
+    {
+     "label": "sw",
+     "probability": 0.32634756
+    },
+    {
+     "label": "de",
+     "probability": 0.219670117
+    },
+    {
+     "label": "eo",
+     "probability": 0.098455839
+    },
+    {
+     "label": "bar",
+     "probability": 0.04144343
+    },
+    {
+     "label": "pl",
+     "probability": 0.037079107
+    }
+   ],
+   "sentenceVector": "ede9653edd1726bfeab135bea8ae293f347f183e8230b2bff49ac2beed24f0bd93143e3f42a7003f4d1365bf6ef0fbbe7609023fdf5084bfd52a063e9b8c0bbf"
+  },
+  {
+   "text": "",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": " ",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "   \t  ",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "12345 67890",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "!!! ??? ...",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.272133231
+    },
+    {
+     "label": "sh",
+     "probability": 0.199081719
+    },
+    {
+     "label": "pt",
+     "probability": 0.171379358
+    },
+    {
+     "label": "ro",
+     "probability": 0.066431157
+    },
+    {
+     "label": "es",
+     "probability": 0.047691714
+    }
+   ],
+   "sentenceVector": "826791be99495fbdcf5f3cbfcb106bbf10f86dbfe465123ff33c8b3ee35c54bebddc273ee38c833e84e3c53eb8ec3e3d28be8dbe7627ddbd47bf0abd001f583f"
+  },
+  {
+   "text": "😀 🎉 🚀",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "OK",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "a",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.124504179
+    },
+    {
+     "label": "ca",
+     "probability": 0.085948326
+    },
+    {
+     "label": "de",
+     "probability": 0.080288105
+    },
+    {
+     "label": "oc",
+     "probability": 0.054167524
+    },
+    {
+     "label": "fr",
+     "probability": 0.053384956
+    }
+   ],
+   "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
+  },
+  {
+   "text": "Hello мир 世界",
+   "predictions": [
+    {
+     "label": "ja",
+     "probability": 0.461497486
+    },
+    {
+     "label": "zh",
+     "probability": 0.355297536
+    },
+    {
+     "label": "uk",
+     "probability": 0.089943178
+    },
+    {
+     "label": "bg",
+     "probability": 0.032830279
+    },
+    {
+     "label": "mk",
+     "probability": 0.011669807
+    }
+   ],
+   "sentenceVector": "3e4697be69bcbcbe9cd68d3e714901bfb40dc7bf4ec02b3f7c2ea83ebd36f63f68cadd3ed278633f315ac8bfe0595dbd0c2fbbbe6f8bab3f2528d2bf0f7d1fbf"
+  },
+  {
+   "text": "www.example.com/path?query=1",
+   "predictions": [
+    {
+     "label": "zh",
+     "probability": 0.291590899
+    },
+    {
+     "label": "kn",
+     "probability": 0.096771412
+    },
+    {
+     "label": "ta",
+     "probability": 0.083087705
+    },
+    {
+     "label": "fa",
+     "probability": 0.082832359
+    },
+    {
+     "label": "de",
+     "probability": 0.053400103
+    }
+   ],
+   "sentenceVector": "234999be829e273e2a9827be5ce09d3e62f492be975039be700a3abe1b5a2f3f7e4c503f38f79a3e114f243d3e09d83c06e0b13fe083b03d9ed144bf82d476be"
+  },
+  {
+   "text": "The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox The quick brown fox ",
+   "predictions": [
+    {
+     "label": "en",
+     "probability": 0.652403414
+    },
+    {
+     "label": "es",
+     "probability": 0.082041286
+    },
+    {
+     "label": "it",
+     "probability": 0.072298445
+    },
+    {
+     "label": "pt",
+     "probability": 0.049801506
+    },
+    {
+     "label": "fr",
+     "probability": 0.016403869
+    }
+   ],
+   "sentenceVector": "d86d82be1b9647be2e86cbbe5167ffbd2212cc3d1d6f3dbe9e74b43e6c6890bebdb51bbf46450cbfc0bc9cbe1a8fe73c39e6c83dd3833739a7a30cbd282acd3e"
+  }
+ ]
+}

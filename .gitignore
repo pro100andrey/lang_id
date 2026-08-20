@@ -1,0 +1,9 @@
+.dart_tool/
+.packages
+pubspec.lock
+build/
+
+# Модели fastText распространяются под CC BY-SA 3.0 и в репозиторий не кладутся.
+# Забрать: dart run tool/download_model.dart
+models/*.ftz
+models/*.bin

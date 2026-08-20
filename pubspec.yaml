@@ -1,0 +1,23 @@
+name: lang_id
+description: >-
+  Language identification in pure Dart. Reads Facebook fastText models
+  (.bin and quantized .ftz).
+version: 0.1.0
+
+repository: https://github.com/pro100andrey/lang_id
+issue_tracker: https://github.com/pro100andrey/lang_id/issues
+homepage: https://github.com/pro100andrey/lang_id
+documentation: https://github.com/pro100andrey/lang_id/blob/main/README.md
+
+topics:
+  - nlp
+  - language-detection
+  - fasttext
+  - text-classification
+
+environment:
+  sdk: ^3.12.0
+
+dev_dependencies:
+  pro_lints: ^6.1.0
+  test: ^1.31.0
