@@ -277,12 +277,9 @@ class Dictionary {
   /// with `-wordNgrams 2`, so a model that needs this is the ordinary case
   /// rather than an exotic one.
   void _addWordNgrams(List<int> out, List<int> hashes) {
-    // A model trained without a hash table has nowhere to put them, exactly
-    // as with the character n-grams above.
-    if (_args.bucket <= 0) {
-      return;
-    }
-
+    // No guard on the table size: a model that asks for word n-grams without
+    // a table to put them in contradicts itself, and ModelArgs.read refuses
+    // it before anything gets this far.
     final reach = _args.wordNgrams;
     final chained = _Uint64();
     for (var i = 0; i < hashes.length; i++) {

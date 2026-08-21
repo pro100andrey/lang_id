@@ -80,17 +80,8 @@ class LanguageIdentifier {
   factory LanguageIdentifier.fromBytes(Uint8List bytes) {
     final reader = BinaryReader(bytes);
     final magic = reader.int32();
-    if (magic != fastTextMagic) {
-      throw const FormatException('not a fastText model: wrong file signature');
-    }
-
     final formatVersion = reader.int32();
-    if (formatVersion > fastTextSupportedVersion) {
-      throw FormatException(
-        'format version $formatVersion is newer than '
-        'the supported one ($fastTextSupportedVersion)',
-      );
-    }
+    checkFastTextHeader(magic, formatVersion);
 
     final args = ModelArgs.read(reader, formatVersion);
     if (args.architecture != FastTextArchitecture.supervised) {

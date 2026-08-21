@@ -18,10 +18,10 @@ void main() {
   const bucket = 100;
   const wordCount = 3;
 
-  Dictionary dictionaryOf({int wordNgrams = 2, int buckets = bucket}) {
+  Dictionary dictionaryOf({int wordNgrams = 2}) {
     final reader =
         BinaryReader(
-            buildSyntheticModel(wordNgrams: wordNgrams, bucket: buckets),
+            buildSyntheticModel(wordNgrams: wordNgrams, bucket: bucket),
           )
           ..int32()
           ..int32();
@@ -70,13 +70,6 @@ void main() {
         2,
         0,
       ]);
-    });
-
-    test('a model with no hash table has nowhere to put them', () {
-      expect(
-        dictionaryOf(buckets: 0).lineToIndices('alpha beta'),
-        [1, 2, 0],
-      );
     });
 
     test('a label in the text takes part in nothing', () {

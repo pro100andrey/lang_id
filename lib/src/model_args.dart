@@ -92,6 +92,19 @@ class ModelArgs {
       maxCharNgram = 0;
     }
 
+    // Both kinds of n-gram live in the same hash table, and fastText zeroes
+    // its size itself when it trains a model that needs none — so an empty
+    // table is ordinary, and an empty table beside n-grams to put in it is a
+    // file that contradicts itself. Without this the n-grams would simply be
+    // dropped and the model would answer from whatever was left.
+    if (bucket < 0 || (bucket == 0 && (maxCharNgram > 0 || wordNgrams > 1))) {
+      throw FormatException(
+        'the model has an n-gram table of $bucket entries, but asks for '
+        'character n-grams up to $maxCharNgram and word n-grams up to '
+        '$wordNgrams',
+      );
+    }
+
     return ModelArgs._(
       dim: dim,
       contextWindow: contextWindow,

@@ -67,6 +67,41 @@ void main() {
     });
   });
 
+  group('n-gram table', () {
+    test('word n-grams with nowhere to put them are refused', () {
+      // fastText zeroes the table itself when it trains a model that needs
+      // none, so an empty one is ordinary — and an empty one beside n-grams
+      // is a file that contradicts itself. Dropping them quietly would leave
+      // the model answering from whatever was left.
+      expectRejected(
+        buildSyntheticModel(wordNgrams: 2),
+        'n-gram table of 0 entries',
+      );
+    });
+
+    test('character n-grams with nowhere to put them are refused', () {
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.maxCharNgram, 4),
+        'n-gram table of 0 entries',
+      );
+    });
+
+    test('a negative table is refused', () {
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.bucket, -1),
+        'n-gram table of -1 entries',
+      );
+    });
+
+    test('an empty table on its own is ordinary', () {
+      expect(
+        LanguageIdentifier.fromBytes(model).info.args.bucket,
+        0,
+        reason: 'what fastText writes for a model with no n-grams at all',
+      );
+    });
+  });
+
   group('shapes', () {
     test('a dimension the matrices do not have is rejected', () {
       // The quiet case: the header claims four columns, the input matrix has

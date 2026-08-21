@@ -340,18 +340,14 @@ class ModelDownloader {
     }
 
     final data = ByteData.view(head.buffer, head.offsetInBytes, head.length);
-    if (data.getInt32(0, Endian.little) != fastTextMagic) {
-      throw ModelDownloadException(
-        '${file.path} is not a fastText model: wrong file signature',
+    try {
+      checkFastTextHeader(
+        data.getInt32(0, Endian.little),
+        data.getInt32(4, Endian.little),
       );
-    }
-
-    final version = data.getInt32(4, Endian.little);
-    if (version > fastTextSupportedVersion) {
+    } on FormatException catch (error) {
       throw ModelDownloadException(
-        '${model?.fileName ?? file.path} has format version '
-        '$version, newer than the supported one '
-        '($fastTextSupportedVersion)',
+        '${model?.fileName ?? file.path}: ${error.message}',
       );
     }
   }
