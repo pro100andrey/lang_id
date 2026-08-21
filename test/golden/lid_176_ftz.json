@@ -7,23 +7,23 @@
    "predictions": [
     {
      "label": "ru",
-     "probability": 0.984448791
+     "probability": 0.9844487905502319
     },
     {
      "label": "be",
-     "probability": 0.004200175
+     "probability": 0.004200174938887358
     },
     {
      "label": "bg",
-     "probability": 0.003385974
+     "probability": 0.003385973861441016
     },
     {
      "label": "uk",
-     "probability": 0.002782254
+     "probability": 0.002782254246994853
     },
     {
      "label": "cv",
-     "probability": 0.000969892
+     "probability": 0.0009698924259282649
     }
    ],
    "sentenceVector": "4765f0be0424f03ec320423e46585bbfd27629bf957090bf6ffa393f24322240bbf85a3f9838b43e073404bf7cf5b13ee541f63db25db03ef62a7b3f6e6ed5bf"
@@ -33,23 +33,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.720583916
+     "probability": 0.7205839157104492
     },
     {
      "label": "es",
-     "probability": 0.041742511
+     "probability": 0.041742511093616486
     },
     {
      "label": "nl",
-     "probability": 0.025787214
+     "probability": 0.025787213817238808
     },
     {
      "label": "pt",
-     "probability": 0.023183312
+     "probability": 0.023183312267065048
     },
     {
      "label": "ru",
-     "probability": 0.016246134
+     "probability": 0.016246134415268898
     }
    ],
    "sentenceVector": "ed5626be3e7b693e44fc35bf3b5c81bd188d173e5491dbbc0981a83e918252bd1ae1d7be29df13bfd2db753d197e5abe47754a3efc1b823d434eef3b257fa13e"
@@ -59,23 +59,23 @@
    "predictions": [
     {
      "label": "fr",
-     "probability": 0.986674249
+     "probability": 0.9866742491722107
     },
     {
      "label": "en",
-     "probability": 0.003888131
+     "probability": 0.0038881313521414995
     },
     {
      "label": "it",
-     "probability": 0.001494371
+     "probability": 0.0014943706337362528
     },
     {
      "label": "es",
-     "probability": 0.000965869
+     "probability": 0.0009658688795752823
     },
     {
      "label": "nl",
-     "probability": 0.000717869
+     "probability": 0.0007178693194873631
     }
    ],
    "sentenceVector": "5e81c6bfe7492abf518e213f5d9f6f3f330287beba93023d53b5c2bf6b3a01bfabfe42bfd4a3003fa926833f0ef6cd3ef8a7ccbdb237843ffb8431bf902ca3bf"
@@ -85,23 +85,23 @@
    "predictions": [
     {
      "label": "de",
-     "probability": 0.999351323
+     "probability": 0.9993513226509094
     },
     {
      "label": "bar",
-     "probability": 0.000149332
+     "probability": 0.00014933213242329657
     },
     {
      "label": "ru",
-     "probability": 0.000134124
+     "probability": 0.0001341235765721649
     },
     {
      "label": "en",
-     "probability": 9.9323e-05
+     "probability": 9.932336251949891e-05
     },
     {
      "label": "als",
-     "probability": 5.9762e-05
+     "probability": 5.976211105007678e-05
     }
    ],
    "sentenceVector": "293e873f589885bf24d0843ff923463fbef3074015fd1bc01db51bc072c8303fdc101d40e50bae3fe757983e15b732bffe25853fc030053f3988abbe701eda3e"
@@ -111,23 +111,23 @@
    "predictions": [
     {
      "label": "es",
-     "probability": 0.937199235
+     "probability": 0.9371992349624634
     },
     {
      "label": "pt",
-     "probability": 0.033231445
+     "probability": 0.03323144465684891
     },
     {
      "label": "ca",
-     "probability": 0.009564638
+     "probability": 0.009564638137817383
     },
     {
      "label": "gl",
-     "probability": 0.007874821
+     "probability": 0.007874821312725544
     },
     {
      "label": "en",
-     "probability": 0.00579052
+     "probability": 0.0057905204594135284
     }
    ],
    "sentenceVector": "eb9bbcbfaefc86bf26b5a0bea6c9f6bf4fbca33ea21f44bfe9a8833fc70d5fbf77a5063e9857413f57db50bf5fcaf83e675c23bf8ae0f83dffdc9abd5f3fd13e"
@@ -137,23 +137,23 @@
    "predictions": [
     {
      "label": "it",
-     "probability": 0.627433956
+     "probability": 0.6274339556694031
     },
     {
      "label": "fr",
-     "probability": 0.200595155
+     "probability": 0.20059515535831451
     },
     {
      "label": "de",
-     "probability": 0.054451276
+     "probability": 0.05445127561688423
     },
     {
      "label": "la",
-     "probability": 0.009287745
+     "probability": 0.009287744760513306
     },
     {
      "label": "sl",
-     "probability": 0.008045508
+     "probability": 0.008045507594943047
     }
    ],
    "sentenceVector": "65189fbe19f351bfaaf1fe3eac5e7d3f1e8f1cbec8538e3ed1d8b4bfc0ade4bda4e2bbbe24f3c13efa6d16bf3245233d3b5dadbf59b3f43d8ed21e3f256d093f"
@@ -163,23 +163,23 @@
    "predictions": [
     {
      "label": "pt",
-     "probability": 0.766540229
+     "probability": 0.7665402293205261
     },
     {
      "label": "es",
-     "probability": 0.145638987
+     "probability": 0.14563898742198944
     },
     {
      "label": "en",
-     "probability": 0.037588652
+     "probability": 0.03758865222334862
     },
     {
      "label": "ca",
-     "probability": 0.018672694
+     "probability": 0.018672693520784378
     },
     {
      "label": "gl",
-     "probability": 0.012020261
+     "probability": 0.012020261026918888
     }
    ],
    "sentenceVector": "ceef07bf0c07a2bfa86d9abe45d4dfbff8718abe071d0abf67b48b3f472459bf225a27bfc485153fc35d97bdf1503ebff3c81ebfa18c893e77e7773f01d27b3f"
@@ -189,23 +189,23 @@
    "predictions": [
     {
      "label": "nl",
-     "probability": 0.992647171
+     "probability": 0.9926471710205078
     },
     {
      "label": "af",
-     "probability": 0.004066456
+     "probability": 0.004066456109285355
     },
     {
      "label": "en",
-     "probability": 0.001512582
+     "probability": 0.0015125821810215712
     },
     {
      "label": "de",
-     "probability": 0.000585554
+     "probability": 0.0005855542840436101
     },
     {
      "label": "ru",
-     "probability": 0.000563712
+     "probability": 0.0005637120339088142
     }
    ],
    "sentenceVector": "79f8f2bf2f8bc13fb9f8b2bee4e10d40d65898be3acf0fc01b9891bef39f5ebfdbb9053ff3891ebfb592013fd881ccbf93bd00bf54411ebf0ae015400822fabf"
@@ -215,23 +215,23 @@
    "predictions": [
     {
      "label": "pl",
-     "probability": 0.994462788
+     "probability": 0.994462788105011
     },
     {
      "label": "en",
-     "probability": 0.001576934
+     "probability": 0.0015769338933750987
     },
     {
      "label": "de",
-     "probability": 0.00101115
+     "probability": 0.0010111499577760696
     },
     {
      "label": "cs",
-     "probability": 0.000485858
+     "probability": 0.0004858576867263764
     },
     {
      "label": "ru",
-     "probability": 0.000459997
+     "probability": 0.00045999730355106294
     }
    ],
    "sentenceVector": "d3e874bf72d7c5bea23400c03dc4313d675d663f97e708bf2f5d343e1b4e233e85efdb3fee5e6d3e2d7a85be943b303f4a18f5bfe83469bf233879bf576090bf"
@@ -241,23 +241,23 @@
    "predictions": [
     {
      "label": "uk",
-     "probability": 0.984416008
+     "probability": 0.9844160079956055
     },
     {
      "label": "be",
-     "probability": 0.012404285
+     "probability": 0.012404285371303558
     },
     {
      "label": "bg",
-     "probability": 0.001768512
+     "probability": 0.0017685117200016975
     },
     {
      "label": "ru",
-     "probability": 0.000673862
+     "probability": 0.0006738618249073625
     },
     {
      "label": "sr",
-     "probability": 0.000182233
+     "probability": 0.0001822327758418396
     }
    ],
    "sentenceVector": "736c023fe07795be9829cbbf01e29abf63f6e4be082f50bf763f203f207948407124a13fc3b6bf3d7348dfbf55e781bf5c31f3bf826cff3f342aa2bd6a161bc0"
@@ -267,23 +267,23 @@
    "predictions": [
     {
      "label": "be",
-     "probability": 0.83066237
+     "probability": 0.8306623697280884
     },
     {
      "label": "bg",
-     "probability": 0.056372132
+     "probability": 0.056372132152318954
     },
     {
      "label": "cv",
-     "probability": 0.0278566
+     "probability": 0.027856599539518356
     },
     {
      "label": "no",
-     "probability": 0.018207185
+     "probability": 0.018207184970378876
     },
     {
      "label": "ka",
-     "probability": 0.016760444
+     "probability": 0.01676044426858425
     }
    ],
    "sentenceVector": "10cbca3f9a60c93c307787bf416113bf4b8c7ebf01c2783f6a9eacbe46d6e13f3aef9fbbce2b21bf4a0907bf5eb448be9bde56befe22b43e8cfea03f602a0e3d"
@@ -293,23 +293,23 @@
    "predictions": [
     {
      "label": "bg",
-     "probability": 0.982126236
+     "probability": 0.9821262359619141
     },
     {
      "label": "vi",
-     "probability": 0.009069622
+     "probability": 0.009069622494280338
     },
     {
      "label": "ceb",
-     "probability": 0.002760485
+     "probability": 0.002760485280305147
     },
     {
      "label": "be",
-     "probability": 0.002076413
+     "probability": 0.002076412783935666
     },
     {
      "label": "en",
-     "probability": 0.001863915
+     "probability": 0.0018639150075614452
     }
    ],
    "sentenceVector": "9487274042bdd73ecf546ebf9e67c3bf5c9feabfb1072d3e87916dbe4c5e18405b1b9fbffc5fc73dec90c2be881fc83e7aca3c3cba087a3f5c83743f0ce44ebf"
@@ -319,23 +319,23 @@
    "predictions": [
     {
      "label": "cs",
-     "probability": 0.994161725
+     "probability": 0.9941617250442505
     },
     {
      "label": "sk",
-     "probability": 0.002195344
+     "probability": 0.002195343840867281
     },
     {
      "label": "bs",
-     "probability": 0.000997724
+     "probability": 0.0009977236622944474
     },
     {
      "label": "en",
-     "probability": 0.000590085
+     "probability": 0.0005900849355384707
     },
     {
      "label": "ro",
-     "probability": 0.000375514
+     "probability": 0.00037551368586719036
     }
    ],
    "sentenceVector": "e241b9bf94c8a1bfe8bda9bd55c503c0cef8ac3e3302f23dac682dc077fb213f428c13400a842a3e5e8ac73f4ed93d3f8ec9323ee2b6dfbf801b09bf289bb63f"
@@ -345,23 +345,23 @@
    "predictions": [
     {
      "label": "sv",
-     "probability": 0.982590079
+     "probability": 0.9825900793075562
     },
     {
      "label": "ru",
-     "probability": 0.003830254
+     "probability": 0.0038302543107420206
     },
     {
      "label": "nl",
-     "probability": 0.00330022
+     "probability": 0.003300220239907503
     },
     {
      "label": "de",
-     "probability": 0.001994768
+     "probability": 0.0019947681576013565
     },
     {
      "label": "pl",
-     "probability": 0.001870391
+     "probability": 0.0018703913083299994
     }
    ],
    "sentenceVector": "ae86abbf60a4943f9f9d58bf4709a23d2bf6813feec0373ea771053f2effbf3e565f963f78c21e40efe13a3fc7a5b13e1d12873e3bda3abea8d8d43fe36e44bf"
@@ -371,23 +371,23 @@
    "predictions": [
     {
      "label": "fi",
-     "probability": 0.943098724
+     "probability": 0.9430987238883972
     },
     {
      "label": "en",
-     "probability": 0.021473616
+     "probability": 0.021473616361618042
     },
     {
      "label": "it",
-     "probability": 0.008391182
+     "probability": 0.0083911819383502
     },
     {
      "label": "hr",
-     "probability": 0.003306441
+     "probability": 0.00330644054338336
     },
     {
      "label": "de",
-     "probability": 0.00253897
+     "probability": 0.0025389695074409246
     }
    ],
    "sentenceVector": "ded741be523e963ece27afbd9e21803eca258e3e403f33be17e20dc0d8537fbe1a66a3beff52203fb6ff89be6fb2d2bfb2db813fd884cebfd21e48bf669816bd"
@@ -397,23 +397,23 @@
    "predictions": [
     {
      "label": "tr",
-     "probability": 0.980623782
+     "probability": 0.9806237816810608
     },
     {
      "label": "en",
-     "probability": 0.004758948
+     "probability": 0.004758947528898716
     },
     {
      "label": "az",
-     "probability": 0.003272621
+     "probability": 0.003272620728239417
     },
     {
      "label": "hu",
-     "probability": 0.002683023
+     "probability": 0.002683022990822792
     },
     {
      "label": "uz",
-     "probability": 0.001853071
+     "probability": 0.0018530706875026226
     }
    ],
    "sentenceVector": "6ea6b83f6a806fbf1b5185bea6dde73d0cd849bf489b1840b79d0bbd98e0253e86ed423f36c80bbe9c29bebd28930abfc32bcc3e286118be4c60dd3fd95962be"
@@ -423,23 +423,23 @@
    "predictions": [
     {
      "label": "ar",
-     "probability": 0.995752811
+     "probability": 0.9957528114318848
     },
     {
      "label": "arz",
-     "probability": 0.002540281
+     "probability": 0.002540281042456627
     },
     {
      "label": "uk",
-     "probability": 0.000348217
+     "probability": 0.00034821670851670206
     },
     {
      "label": "fa",
-     "probability": 0.000336735
+     "probability": 0.00033673481084406376
     },
     {
      "label": "es",
-     "probability": 0.000246734
+     "probability": 0.0002467338345013559
     }
    ],
    "sentenceVector": "379685be3daa443f6d1bc3bf0c3a0fc04336efbf9bc9c2bf23be0ebd73c8b6bf39e46840955c74be4babccbf4962c7be4811053fd37d37400be231bfe261e3bf"
@@ -449,23 +449,23 @@
    "predictions": [
     {
      "label": "he",
-     "probability": 1.00003624
+     "probability": 1.0000362396240234
     },
     {
      "label": "en",
-     "probability": 1.7033e-05
+     "probability": 1.7033224139595404e-05
     },
     {
      "label": "ru",
-     "probability": 1.2239e-05
+     "probability": 1.2239250281709246e-05
     },
     {
      "label": "yi",
-     "probability": 1.1243e-05
+     "probability": 1.1243198969168589e-05
     },
     {
      "label": "de",
-     "probability": 1.001e-05
+     "probability": 1.001021246338496e-05
     }
    ],
    "sentenceVector": "79241fbedf48eb3f5c7078400fd009c086031240a3bdc43c3f60a8c067b1a6bf8da7894096f5acc0eb004fbe1150c9bf3932ce3f9052c8bf8efdb7bfaab785c0"
@@ -475,23 +475,23 @@
    "predictions": [
     {
      "label": "fa",
-     "probability": 0.991227269
+     "probability": 0.9912272691726685
     },
     {
      "label": "mzn",
-     "probability": 0.005229618
+     "probability": 0.005229617934674025
     },
     {
      "label": "azb",
-     "probability": 0.00127582
+     "probability": 0.0012758196098729968
     },
     {
      "label": "ar",
-     "probability": 0.000379921
+     "probability": 0.00037992093712091446
     },
     {
      "label": "ml",
-     "probability": 0.000297421
+     "probability": 0.00029742118204012513
     }
    ],
    "sentenceVector": "0bf00c3f208baf3f60f6893f6fef84bf70e61ec0be833b3e33e14dc0c30cccbf9bf32c4008318e3f5c1dc8bf0bd78dbf9acafa3f986505bf724693bfee52bcbb"
@@ -501,23 +501,23 @@
    "predictions": [
     {
      "label": "hi",
-     "probability": 0.980781496
+     "probability": 0.9807814955711365
     },
     {
      "label": "ne",
-     "probability": 0.005281815
+     "probability": 0.005281815305352211
     },
     {
      "label": "new",
-     "probability": 0.004412766
+     "probability": 0.004412766080349684
     },
     {
      "label": "sa",
-     "probability": 0.002990747
+     "probability": 0.0029907471034675837
     },
     {
      "label": "dty",
-     "probability": 0.001582805
+     "probability": 0.001582804718054831
     }
    ],
    "sentenceVector": "ab886cc0118caabf427ad13ff73234bf1885fbbf8d6d0140824af6be2d5cec3e1fb9e03fcf94c0bff3f097bffacb903eb84966406e81b9beeb88583f9fa94b3f"
@@ -527,23 +527,23 @@
    "predictions": [
     {
      "label": "th",
-     "probability": 0.99965483
+     "probability": 0.9996548295021057
     },
     {
      "label": "fa",
-     "probability": 0.000158737
+     "probability": 0.0001587373553775251
     },
     {
      "label": "bn",
-     "probability": 0.000142044
+     "probability": 0.00014204354374669492
     },
     {
      "label": "ca",
-     "probability": 9.4784e-05
+     "probability": 9.478414722252637e-05
     },
     {
      "label": "nl",
-     "probability": 1.703e-05
+     "probability": 1.7029586160788313e-05
     }
    ],
    "sentenceVector": "e2db76c03f98a640f9aababe6534c2bd8a600abf0b2b90c0aaec8cbe9da398bfaa5980bf7e1e4fbef111d0bf28e9bfbf6f47914078c68bbfd8f8e3bf45bdabbf"
@@ -553,23 +553,23 @@
    "predictions": [
     {
      "label": "ja",
-     "probability": 0.995337129
+     "probability": 0.9953371286392212
     },
     {
      "label": "es",
-     "probability": 0.002533488
+     "probability": 0.0025334875099360943
     },
     {
      "label": "zh",
-     "probability": 0.001206296
+     "probability": 0.0012062962632626295
     },
     {
      "label": "en",
-     "probability": 0.000309899
+     "probability": 0.00030989942024461925
     },
     {
      "label": "ru",
-     "probability": 0.00023303
+     "probability": 0.0002330299321329221
     }
    ],
    "sentenceVector": "b7709dbf33998c3f07d91f3efdb0fd3d26db3c3f256c5fbd6f79e03fcc83c33e72db573ff2b4cd3f3b9404c0006f2cbebf8eb4be14d7823fcb3002c04d198ebf"
@@ -579,15 +579,15 @@
    "predictions": [
     {
      "label": "zh",
-     "probability": 0.995886683
+     "probability": 0.9958866834640503
     },
     {
      "label": "ja",
-     "probability": 0.004095232
+     "probability": 0.004095231648534536
     },
     {
      "label": "wuu",
-     "probability": 6.2668e-05
+     "probability": 6.266809214139357e-05
     }
    ],
    "sentenceVector": "e4c7bfbfc6488ebdd7a30b3fdeb47b3fd7f582bf66ac15407fe3223ebdf4ed3fc8cb1c3fbc845b409112f9bfc7db1dbef6996d3f44d31040557197c072c023bf"
@@ -597,15 +597,15 @@
    "predictions": [
     {
      "label": "ko",
-     "probability": 1.000063896
+     "probability": 1.0000638961791992
     },
     {
      "label": "en",
-     "probability": 1.0119e-05
+     "probability": 1.0119259968632832e-05
     },
     {
      "label": "tr",
-     "probability": 1e-05
+     "probability": 1.0000346264860127e-05
     }
    ],
    "sentenceVector": "c96cd33f7b9d833f6353edbef8ad003eb0a9a4bf8b76db40000450be2212d63f6e8877bf52e84c3f46bdd2c03d5a8d3f0abead3fb9b83f4073d0a63fe829a73f"
@@ -615,23 +615,23 @@
    "predictions": [
     {
      "label": "vi",
-     "probability": 0.999144316
+     "probability": 0.9991443157196045
     },
     {
      "label": "sv",
-     "probability": 0.000210507
+     "probability": 0.00021050672512501478
     },
     {
      "label": "en",
-     "probability": 0.000142611
+     "probability": 0.00014261118485592306
     },
     {
      "label": "war",
-     "probability": 0.000117451
+     "probability": 0.00011745081428671256
     },
     {
      "label": "bg",
-     "probability": 9.0634e-05
+     "probability": 9.063353354576975e-05
     }
    ],
    "sentenceVector": "3da9f93fc339713ffd4ed9bf2c71c7bf33889dbfffc1523e981b08c071de833fe2cb42c0ca76ea3fee32f0bfcf69c33ff5afec3da80ee03ffd89783f62d40c3f"
@@ -641,23 +641,23 @@
    "predictions": [
     {
      "label": "el",
-     "probability": 0.994284213
+     "probability": 0.9942842125892639
     },
     {
      "label": "ja",
-     "probability": 0.001590511
+     "probability": 0.0015905111795291305
     },
     {
      "label": "en",
-     "probability": 0.000755727
+     "probability": 0.0007557265926152468
     },
     {
      "label": "de",
-     "probability": 0.000729896
+     "probability": 0.0007298959535546601
     },
     {
      "label": "kn",
-     "probability": 0.000641618
+     "probability": 0.0006416178657673299
     }
    ],
    "sentenceVector": "f07289bffa4223c01942b93fdb14aabeaab6b63fa9d72abfaf0690bf902509407483b4be3b2f5dbf3271efbf52ffd43fb17e4540b480563f4225e3bff2979cbf"
@@ -667,23 +667,23 @@
    "predictions": [
     {
      "label": "ka",
-     "probability": 0.988744915
+     "probability": 0.9887449145317078
     },
     {
      "label": "xmf",
-     "probability": 0.011231658
+     "probability": 0.011231658048927784
     },
     {
      "label": "ru",
-     "probability": 4.728e-05
+     "probability": 4.7279645514208823e-05
     },
     {
      "label": "be",
-     "probability": 2.2827e-05
+     "probability": 2.282699460920412e-05
     },
     {
      "label": "br",
-     "probability": 2.1677e-05
+     "probability": 2.1677433323930018e-05
     }
    ],
    "sentenceVector": "59a0c43f246010403f5857bf66142dc08485fdbf182fe63ebdfaa93eb6c5294049deb2bfac6634c066071fc04572a0c0535fc23f02c85b3f46b6f5407bfdd3bf"
@@ -693,23 +693,23 @@
    "predictions": [
     {
      "label": "hy",
-     "probability": 1.000047565
+     "probability": 1.0000475645065308
     },
     {
      "label": "ru",
-     "probability": 1.6721e-05
+     "probability": 1.6720521671231836e-05
     },
     {
      "label": "th",
-     "probability": 1.5691e-05
+     "probability": 1.5691231965320185e-05
     },
     {
      "label": "my",
-     "probability": 1.4515e-05
+     "probability": 1.4514993381453678e-05
     },
     {
      "label": "nl",
-     "probability": 1.1789e-05
+     "probability": 1.1788514711952303e-05
     }
    ],
    "sentenceVector": "d4b41cc0a3e43c40f0501f40c050163f84c5283f5e942bc04eca254099b72b3f0a1e6940f750ae3ea65fadc0cf208ec0220360405f8446c0e4728040ac2ef8bc"
@@ -719,23 +719,23 @@
    "predictions": [
     {
      "label": "id",
-     "probability": 0.970528483
+     "probability": 0.9705284833908081
     },
     {
      "label": "ms",
-     "probability": 0.020820815
+     "probability": 0.02082081511616707
     },
     {
      "label": "en",
-     "probability": 0.002086956
+     "probability": 0.002086956286802888
     },
     {
      "label": "jv",
-     "probability": 0.001080038
+     "probability": 0.0010800380259752274
     },
     {
      "label": "ca",
-     "probability": 0.001007351
+     "probability": 0.001007350510917604
     }
    ],
    "sentenceVector": "971603c05f38abbec0c43cbfc4dfa03fe214c0bf57736e3ecefd8e3fc8c38c3ccb46813f016a0c40a30ebebee7f7473f64d6b93f62c6a8bfdae8843f379a41bd"
@@ -745,23 +745,23 @@
    "predictions": [
     {
      "label": "sw",
-     "probability": 0.32634756
+     "probability": 0.32634755969047546
     },
     {
      "label": "de",
-     "probability": 0.219670117
+     "probability": 0.2196701169013977
     },
     {
      "label": "eo",
-     "probability": 0.098455839
+     "probability": 0.09845583885908127
     },
     {
      "label": "bar",
-     "probability": 0.04144343
+     "probability": 0.04144342988729477
     },
     {
      "label": "pl",
-     "probability": 0.037079107
+     "probability": 0.037079107016325
     }
    ],
    "sentenceVector": "ede9653edd1726bfeab135bea8ae293f347f183e8230b2bff49ac2beed24f0bd93143e3f42a7003f4d1365bf6ef0fbbe7609023fdf5084bfd52a063e9b8c0bbf"
@@ -771,23 +771,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -797,23 +797,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -823,23 +823,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -849,23 +849,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -875,23 +875,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.272133231
+     "probability": 0.2721332311630249
     },
     {
      "label": "sh",
-     "probability": 0.199081719
+     "probability": 0.19908171892166138
     },
     {
      "label": "pt",
-     "probability": 0.171379358
+     "probability": 0.17137935757637024
     },
     {
      "label": "ro",
-     "probability": 0.066431157
+     "probability": 0.06643115729093552
     },
     {
      "label": "es",
-     "probability": 0.047691714
+     "probability": 0.0476917140185833
     }
    ],
    "sentenceVector": "826791be99495fbdcf5f3cbfcb106bbf10f86dbfe465123ff33c8b3ee35c54bebddc273ee38c833e84e3c53eb8ec3e3d28be8dbe7627ddbd47bf0abd001f583f"
@@ -901,23 +901,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -927,23 +927,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -953,23 +953,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.124504179
+     "probability": 0.12450417876243591
     },
     {
      "label": "ca",
-     "probability": 0.085948326
+     "probability": 0.08594832569360733
     },
     {
      "label": "de",
-     "probability": 0.080288105
+     "probability": 0.0802881047129631
     },
     {
      "label": "oc",
-     "probability": 0.054167524
+     "probability": 0.054167523980140686
     },
     {
      "label": "fr",
-     "probability": 0.053384956
+     "probability": 0.05338495597243309
     }
    ],
    "sentenceVector": "099bd2be7c624f3d1b065cbeb706633ec4e8a0be86d0d1beeb0467be0def3f3e8302073ed99ebe3e53e64cbcd845d2bcbaf9bb3dbc475b3e24c8e83d4195d43e"
@@ -979,23 +979,23 @@
    "predictions": [
     {
      "label": "ja",
-     "probability": 0.461497486
+     "probability": 0.4614974856376648
     },
     {
      "label": "zh",
-     "probability": 0.355297536
+     "probability": 0.3552975356578827
     },
     {
      "label": "uk",
-     "probability": 0.089943178
+     "probability": 0.08994317799806595
     },
     {
      "label": "bg",
-     "probability": 0.032830279
+     "probability": 0.03283027932047844
     },
     {
      "label": "mk",
-     "probability": 0.011669807
+     "probability": 0.011669807136058807
     }
    ],
    "sentenceVector": "3e4697be69bcbcbe9cd68d3e714901bfb40dc7bf4ec02b3f7c2ea83ebd36f63f68cadd3ed278633f315ac8bfe0595dbd0c2fbbbe6f8bab3f2528d2bf0f7d1fbf"
@@ -1005,23 +1005,23 @@
    "predictions": [
     {
      "label": "zh",
-     "probability": 0.291590899
+     "probability": 0.2915908992290497
     },
     {
      "label": "kn",
-     "probability": 0.096771412
+     "probability": 0.09677141159772873
     },
     {
      "label": "ta",
-     "probability": 0.083087705
+     "probability": 0.08308770507574081
     },
     {
      "label": "fa",
-     "probability": 0.082832359
+     "probability": 0.08283235877752304
     },
     {
      "label": "de",
-     "probability": 0.053400103
+     "probability": 0.053400103002786636
     }
    ],
    "sentenceVector": "234999be829e273e2a9827be5ce09d3e62f492be975039be700a3abe1b5a2f3f7e4c503f38f79a3e114f243d3e09d83c06e0b13fe083b03d9ed144bf82d476be"
@@ -1031,23 +1031,23 @@
    "predictions": [
     {
      "label": "en",
-     "probability": 0.652403414
+     "probability": 0.6524034142494202
     },
     {
      "label": "es",
-     "probability": 0.082041286
+     "probability": 0.08204128593206406
     },
     {
      "label": "it",
-     "probability": 0.072298445
+     "probability": 0.07229844480752945
     },
     {
      "label": "pt",
-     "probability": 0.049801506
+     "probability": 0.049801506102085114
     },
     {
      "label": "fr",
-     "probability": 0.016403869
+     "probability": 0.016403868794441223
     }
    ],
    "sentenceVector": "d86d82be1b9647be2e86cbbe5167ffbd2212cc3d1d6f3dbe9e74b43e6c6890bebdb51bbf46450cbfc0bc9cbe1a8fe73c39e6c83dd3833739a7a30cbd282acd3e"

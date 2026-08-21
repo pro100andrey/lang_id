@@ -1,9 +1,10 @@
 # lang_id
 
-Language identification in pure Dart. The package reads
-[fastText](https://fasttext.cc) models itself — both plain `.bin` and
-quantized `.ftz` — and computes the prediction itself. No FFI, no native
-libraries, no C++ build step: it runs on the VM, in AOT builds and on the web.
+Supervised [fastText](https://fasttext.cc) classifiers in pure Dart,
+language identification among them. The package reads the models itself —
+both plain `.bin` and quantized `.ftz` — and computes the prediction itself.
+No FFI, no native libraries, no C++ build step: it runs on the VM, in AOT
+builds and on the web.
 
 ```sh
 dart pub add lang_id
@@ -13,14 +14,14 @@ dart pub add lang_id
 import 'package:lang_id/lang_id_io.dart';
 
 // Downloads the model on the first run, reads it from disk afterwards.
-final identifier = await loadOrDownloadModel(
+final classifier = await loadOrDownloadModel(
   PretrainedModel.compact,
   directory: 'models',
 );
 
-print(identifier.identify('Привіт, як справи? Сьогодні чудова погода.'));
+print(classifier.classify('Привіт, як справи? Сьогодні чудова погода.'));
 // uk 96.7%
-print(identifier.predict('Bonjour', k: 3));
+print(classifier.predict('Bonjour', k: 3));
 // [fr 90.2%, en 5.5%, de 0.7%]
 ```
 
@@ -56,7 +57,15 @@ try {
   with proxies, certificates or timeouts.
 * Failures come back as `ModelDownloadException`, including the case where
   what arrived is not a fastText model at all — a captive portal or an error
-  page, for instance.
+  page, for instance. A file already on disk that turns out not to be a model
+  is thrown away and fetched again, rather than reported forever.
+* A body that stops early is refused: against the announced `Content-Length`
+  when there is one, and by reading the file as a model when there is not,
+  since a chunked response cut in half ends just as quietly as a whole one.
+* Reaching the server, getting an answer and the gaps in between are all
+  bounded — `ModelDownloader(connectionTimeout: ..., stallTimeout: ...)` —
+  so a mirror that accepts the connection and says nothing cannot hang the
+  app that is starting up.
 
 The same thing from the command line:
 
@@ -90,23 +99,24 @@ import 'package:lang_id/lang_id.dart';
 // The core of the package does not depend on dart:io, so the bytes can come
 // from anywhere: Flutter assets, the network, memory. Use lang_id_io.dart for
 // loadModel / loadOrDownloadModel when you do have a filesystem.
-final identifier = LanguageIdentifier.fromBytes(
+final classifier = FastTextClassifier.fromBytes(
     File('models/lid.176.ftz').readAsBytesSync());
 
 // The most likely language, or null when there is nothing to predict from.
-final best = identifier.identify('Мова програмування Dart');
+final best = classifier.classify('Мова програмування Dart');
 print('${best?.label} ${best?.probability}');   // uk 0.9649…
 
-// Several candidates, cut off by probability.
-for (final p in identifier.predict(text, k: 5, threshold: 0.01)) {
+// Several candidates, cut off by probability. `k: -1` asks for all of them.
+const text = 'Мова програмування Dart створена компанією Google';
+for (final p in classifier.predict(text, k: 5, threshold: 0.01)) {
   print('$p');
 }
 
-print(identifier.languages.length);   // 176
-print(identifier.info);               // dim, loss, dictionary size
+print(classifier.labels.length);      // 176
+print(classifier.info);               // dim, loss, dictionary size
 
 // The embedding behind the prediction, if you want it on its own.
-final vector = identifier.sentenceVector('Мова програмування Dart');
+final vector = classifier.sentenceVector('Мова програмування Dart');
 print(vector.length);                 // 16
 ```
 
@@ -144,10 +154,47 @@ arrive.
   floor. The numbers are reproduced as the original computes them rather than
   tidied up, because tidying them would break the parity below.
 * **Loading the 125 MB model blocks** for tens of milliseconds and allocates
-  125 MB. Handing the loaded identifier to another isolate copies its data,
+  125 MB. Handing the loaded classifier to another isolate copies its data,
   which defeats the point at that size — load and predict inside one
   long-lived isolate instead. The compact model loads in about 20 ms, so it
   rarely needs any of this.
+
+## A classifier of your own
+
+`lid.176` is one supervised fastText model among many, and nothing here is
+specific to it. Train your own and read it the same way — the labels that
+come back are the words you trained on:
+
+```text
+__label__good     Retry with backoff; the socket closes on the third failure.
+__label__garbage  yeah i guess we could maybe try doing it that way
+```
+
+```sh
+fasttext supervised -input train.txt -output quality \
+    -minn 2 -maxn 5 -wordNgrams 2 -epoch 25 -lr 0.5
+fasttext quantize -input train.txt -output quality   # quality.ftz, ~1 MB
+```
+
+```dart
+final quality = FastTextClassifier.fromBytes(
+    File('models/quality.ftz').readAsBytesSync());
+
+print(quality.labels);   // [good, garbage]
+
+bool worthKeeping(String text) {
+  final best = quality.classify(text);
+  return best != null && best.label == 'good' && best.probability > 0.7;
+}
+```
+
+Two things worth knowing about the labels:
+
+* `labels` is ordered by how often each one occurred in training, not by the
+  order you wrote them, so compare the string rather than the position.
+* The `__label__` prefix is stripped for you, but it is fastText's default
+  rather than something the file records: a model trained with
+  `-label "__cls__"` keeps that prefix in `labels`.
 
 ## In a Flutter app
 
@@ -157,7 +204,7 @@ Put the model in a directory the app owns and let the package fetch it:
 import 'package:path_provider/path_provider.dart';
 
 final directory = await getApplicationSupportDirectory();
-final identifier = await loadOrDownloadModel(
+final classifier = await loadOrDownloadModel(
   PretrainedModel.compact,
   directory: directory.path,
   onProgress: (p) => setState(() => _progress = p.fraction),
@@ -176,7 +223,10 @@ flutter:
 
 ```dart
 final data = await rootBundle.load('assets/lid.176.ftz');
-final identifier = LanguageIdentifier.fromBytes(data.buffer.asUint8List());
+// The offset and the length matter: a ByteData is a window onto a buffer
+// that may hold other assets too.
+final classifier = FastTextClassifier.fromBytes(
+    data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
 ```
 
 Note that bundling means you are **distributing** the weights, so the
@@ -185,22 +235,45 @@ run time does not.
 
 ## Parity with the original
 
-The answers match the reference fastText implementation **bit for bit**, not
-approximately. This is checked by `test/parity_test.dart` over 41 cases for
-each of the two models: thirty writing systems, closely related languages, and
-degenerate inputs such as the empty string, emoji and bare punctuation. Both
-the predictions and the sentence vectors are compared — the vectors as raw
-float32 bytes, so the check is exact rather than rounded through decimal. The
-reference answers live in `test/golden` and are regenerated from the original
-fastText by `tool/generate_golden.py`.
+The answers match the reference fastText implementation **bit for bit**, and
+the tests say so in those terms: labels, probabilities and sentence vectors
+are all compared exactly, the vectors and the probabilities as float32 values
+rather than through decimal.
 
-Matching it required reproducing not just the algorithm but the arithmetic.
+`test/parity_test.dart` runs 41 cases against each of the two `lid.176`
+models: thirty writing systems, closely related languages, and degenerate
+inputs such as the empty string, emoji and bare punctuation. `lid.176` is one
+model with one loss and no word n-grams, so `test/fixture_parity_test.dart`
+adds five more, trained by the original fastText and small enough to live in
+the repository: plain softmax, negative sampling, one-vs-all, and two with
+`wordNgrams: 2` over a corpus whose labels are separated by word order alone.
+All the reference answers live in `test/golden`, regenerated by
+`tool/generate_golden.py` and `tool/generate_fixtures.py`.
+
+Matching it means reproducing not just the algorithm but the arithmetic.
 fastText runs inference in `float`, and in the tail of the output, where
 probabilities bottom out at `1e-5`, Dart's extra precision swaps neighbouring
-labels around. The least obvious spot is the sigmoid: C++ sums `1 + exp(-x)`
-in float32, so for large `x` the sum collapses to exactly one and `1 - f` to
-zero. The same expression in double yields one ulp instead of zero, and the
-logarithm of a rare branch drifts by several digits.
+labels around. Every intermediate is rounded exactly where C++ rounds it. Two
+spots are worth naming:
+
+* The sigmoid sums `1 + exp(-x)` in float32, so for large `x` the sum
+  collapses to exactly one and `1 - f` to zero. In double it yields one ulp
+  instead of zero, and the logarithm of a rare branch drifts by several
+  digits. The lookup table beside it is written against a double literal and
+  does not — the two look identical and are not.
+* `d += a * b` in the dot product is **not** read as a fused multiply-add.
+  C++ is allowed to contract it into one, and the build these goldens come
+  from does not, so the product is rounded on its own. Reading it the other
+  way moves 27 of the 41 dense cases, by up to 398 ulps.
+
+One difference is not reproducible, and the tests bound it rather than hide
+it. fastText takes its exponentials in `float`, and a platform's `expf` is
+not always the correctly rounded result — Dart's `exp` rounded to float32 is.
+Where they disagree it is by one ulp, which the walk down the Huffman tree
+can grow to a few by the time it reaches a probability: on the machine these
+goldens were generated on, three of the 41 quantized cases differ, by at most
+eight ulps. The suite allows that much and no more, which is far below what
+any mistake in the arithmetic costs.
 
 ## What is supported
 
@@ -208,7 +281,8 @@ logarithm of a rare branch drifts by several digits.
 * Dense (`.bin`) and product-quantized (`.ftz`) matrices.
 * The supervised architecture with any loss: hierarchical softmax (what
   `lid.176` uses), plain softmax, negative sampling, one-vs-all.
-* Character n-grams, pruned dictionaries, quantized row norms.
+* Character n-grams and word n-grams (`-wordNgrams`), pruned dictionaries,
+  quantized row norms.
 
 Word-vector models (`cbow`, `skipgram`) are rejected: they have no labels, so
 there is nothing to predict.
@@ -240,7 +314,7 @@ Loading weights from disk lives in a separate library,
 | `lib/src/output_layer.dart` | Huffman tree, softmax, sigmoids |
 | `lib/src/float32.dart` | rounding intermediate results to float32 |
 | `lib/src/model_format.dart` | format signature and version constants |
-| `lib/src/language_identifier.dart` | assembling the model and predicting |
+| `lib/src/fasttext_classifier.dart` | assembling the model and predicting |
 | `lib/src/model_downloader.dart` | fetching the weights into a directory |
 
 The binary format was worked out against the sources of
@@ -251,17 +325,29 @@ no code was copied from there.
 
 ```sh
 dart pub get
-dart run tool/download_model.dart --full   # for the full test suite
+dart run tool/download_model.dart          # lid.176.ftz
+dart run tool/download_model.dart --full   # lid.176.bin, for the whole suite
 dart test
 dart analyze
 ```
 
-Tests that need weights are reported as skipped when the files are missing.
-The downloader is tested against a local `HttpServer`, so the suite stays
-offline and deterministic.
+Tests that need the weights are reported as skipped when the files are
+missing, which is right for a working copy and wrong for anything automated:
+set `LANG_ID_REQUIRE_MODELS=1` (as CI does) and a missing model fails the run
+instead. The reference models in `test/fixtures` are a few kilobytes and are
+committed, so they always run. The downloader is tested against a local
+`HttpServer`, so the suite stays offline and deterministic.
+
+Regenerating the reference answers needs the original fastText:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install fasttext-wheel
+.venv/bin/python tool/generate_golden.py      # lid.176, needs the weights
+.venv/bin/python tool/generate_fixtures.py    # the small trained models
+```
 
 Test data deliberately contains text in many languages, Russian among them —
-that is the input a language identifier is supposed to be checked against.
+that is the input a language classifier is supposed to be checked against.
 
 ## Licences
 

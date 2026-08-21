@@ -30,46 +30,70 @@ const _demoTexts = [
 ];
 
 Future<void> main(List<String> args) async {
-  final identifier = await loadOrDownloadModel(
-    PretrainedModel.compact,
-    directory: 'models',
-    onProgress: (progress) => stderr.write('\r$progress'),
-  );
-  stderr.writeln('\n${identifier.info}\n');
+  final FastTextClassifier classifier;
+  try {
+    classifier = await loadOrDownloadModel(
+      PretrainedModel.compact,
+      directory: 'models',
+      onProgress: (progress) => stderr.write('\r$progress'),
+    );
+  } on ModelDownloadException catch (error) {
+    // The first run needs the network. Saying so is more use than a stack
+    // trace and an exit code of 255.
+    stderr.writeln('\nCould not fetch the model: $error');
+    exitCode = 1;
+
+    return;
+  } on FormatException catch (error) {
+    stderr
+      ..writeln('\nmodels/lid.176.ftz is not readable: ${error.message}')
+      ..writeln('Delete it and run again to fetch a fresh copy.');
+    exitCode = 1;
+
+    return;
+  }
+
+  stderr.writeln('\n${classifier.info}\n');
 
   if (args.isEmpty) {
-    _demo(identifier);
+    _demo(classifier);
     return;
   }
 
   if (args.length == 1 && (args.single == '-' || args.single == '--stdin')) {
-    await _readStdin(identifier);
+    await _readStdin(classifier);
     return;
   }
 
-  _report(identifier, args.join(' '));
+  _report(classifier, args.join(' '));
 }
 
-Future<void> _readStdin(LanguageIdentifier identifier) async {
-  final lines = stdin.transform(utf8.decoder).transform(const LineSplitter());
+Future<void> _readStdin(FastTextClassifier classifier) async {
+  // Malformed bytes become replacement characters rather than an error.
+  // Text of an unknown encoding is exactly what a language classifier is
+  // reached for, and the strict decoder would abandon the whole stream over
+  // one Latin-1 byte, reporting nothing for the lines that were fine.
+  final lines = stdin
+      .transform(const Utf8Decoder(allowMalformed: true))
+      .transform(const LineSplitter());
   await for (final line in lines) {
     if (line.trim().isNotEmpty) {
-      _report(identifier, line);
+      _report(classifier, line);
     }
   }
 }
 
-void _demo(LanguageIdentifier identifier) {
+void _demo(FastTextClassifier classifier) {
   stdout.writeln(
-    '${identifier.languages.length} languages known, '
+    '${classifier.labels.length} languages known, '
     'top 3 for each sample:\n',
   );
 
   for (final text in _demoTexts) {
-    _report(identifier, text);
+    _report(classifier, text);
   }
 
-  final vector = identifier.sentenceVector(_demoTexts.first);
+  final vector = classifier.sentenceVector(_demoTexts.first);
   final head = vector.take(6).map((v) => v.toStringAsFixed(3)).join(' ');
   stdout
     ..writeln(
@@ -83,8 +107,8 @@ void _demo(LanguageIdentifier identifier) {
     );
 }
 
-void _report(LanguageIdentifier identifier, String text) {
-  final top = identifier.predict(text, k: 3, threshold: 0.01);
+void _report(FastTextClassifier classifier, String text) {
+  final top = classifier.predict(text, k: 3, threshold: 0.01);
   final verdict = top.isEmpty ? '?' : top.join(', ');
   stdout.writeln('${verdict.padRight(30)}$text');
 }

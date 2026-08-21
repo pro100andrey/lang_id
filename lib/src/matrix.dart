@@ -20,7 +20,36 @@ abstract class Matrix {
 
   void addRowTo(Float32List target, int row);
 
+  /// The dot product of [vector] with a row.
+  ///
+  /// Throws [FormatException] when the result is not a finite number, which
+  /// means the weights are not either.
   double dotRow(Float32List vector, int row);
+}
+
+/// Refuses a score that is not a finite number.
+///
+/// fastText guards its own dot product against NaN, and the guard was worth
+/// keeping. A NaN passes every comparison as false: the range checks of the
+/// table-driven sigmoid let it through to a conversion that throws something
+/// no caller could anticipate, and the two guards that prune the walk down
+/// the Huffman tree stop firing, so the answer comes back in an order that
+/// contradicts the "most likely first" the API promises.
+///
+/// Infinity is refused as well, which fastText does not do. It arrives one
+/// step earlier — an infinite weight makes an infinite score, and the
+/// softmax turns that into NaN when it subtracts the maximum — and there is
+/// nothing a caller could do with the answer either way. Trained weights
+/// never come near the size this needs.
+double _requireNumber(double score) {
+  if (!score.isFinite) {
+    throw FormatException(
+      'the model scored a text as $score: its weights contain NaN or an '
+      'infinity',
+    );
+  }
+
+  return score;
 }
 
 /// A dense float32 matrix, as found in unquantized `.bin` models.
@@ -30,6 +59,10 @@ class DenseMatrix implements Matrix {
   factory DenseMatrix.read(BinaryReader reader) {
     final rows = reader.int64();
     final columns = reader.int64();
+    if (rows < 0 || columns < 0) {
+      throw FormatException('a matrix of ${rows}x$columns cannot be read');
+    }
+
     return DenseMatrix._(rows, columns, reader.float32List(rows * columns));
   }
 
@@ -52,13 +85,16 @@ class DenseMatrix implements Matrix {
   double dotRow(Float32List vector, int row) {
     final offset = row * columns;
     var sum = 0.0;
-    // The product is deliberately not rounded on its own: C++ contracts
-    // `d += a * b` into a single fused multiply-add, so there is exactly one
-    // rounding step, which is what storing a double product into float32 does.
+    // Two rounding steps, one for the product and one for the sum. Fusing
+    // them into a multiply-add would be the faster reading of `d += a * b`,
+    // and it is what the C++ is allowed to do, but the reference the goldens
+    // come from does not: contraction is optional, and the answers here were
+    // measured against a build that keeps both roundings.
     for (var i = 0; i < columns; i++) {
-      sum = float32(sum + vector[i] * _data[offset + i]);
+      sum = float32(sum + float32(vector[i] * _data[offset + i]));
     }
-    return sum;
+
+    return _requireNumber(sum);
   }
 }
 
@@ -83,8 +119,30 @@ class QuantizedMatrix implements Matrix {
     final rows = reader.int64();
     final columns = reader.int64();
     final codeSize = reader.int32();
+    if (rows < 0 || columns < 0) {
+      throw FormatException('a matrix of ${rows}x$columns cannot be read');
+    }
+
     final codes = reader.byteView(codeSize);
     final quantizer = ProductQuantizer.read(reader);
+    // fastText sizes the code block as one code per sub-space per row. Any
+    // other value means the codes and the codebook describe different
+    // matrices, and every lookup below would run off the end of one of them.
+    if (codeSize != rows * quantizer.subquantizers) {
+      throw FormatException(
+        'the quantized matrix carries $codeSize codes, but $rows rows of '
+        '${quantizer.subquantizers} sub-spaces need '
+        '${rows * quantizer.subquantizers}',
+      );
+    }
+
+    if (quantizer.dim != columns) {
+      throw FormatException(
+        'the codebook describes ${quantizer.dim} columns, but the matrix has '
+        '$columns',
+      );
+    }
+
     Uint8List? normCodes;
     ProductQuantizer? normQuantizer;
     if (hasNorms) {
@@ -128,7 +186,7 @@ class QuantizedMatrix implements Matrix {
 
   @override
   double dotRow(Float32List vector, int row) =>
-      _quantizer.dotCode(vector, _codes, row, _norm(row));
+      _requireNumber(_quantizer.dotCode(vector, _codes, row, _norm(row)));
 }
 
 /// A product quantization codebook: 256 centroids per sub-space.
@@ -146,6 +204,19 @@ class ProductQuantizer {
     final subquantizers = reader.int32();
     final subDim = reader.int32();
     final lastSubDim = reader.int32();
+    // The sub-spaces tile the vector exactly: every one of them is subDim
+    // wide except the last. Holding the file to that is what keeps every
+    // centroid offset inside the codebook.
+    if (subquantizers < 1 ||
+        subDim < 1 ||
+        lastSubDim < 1 ||
+        (subquantizers - 1) * subDim + lastSubDim != dim) {
+      throw FormatException(
+        'the codebook does not tile a vector of $dim: $subquantizers '
+        'sub-spaces of $subDim, the last one $lastSubDim',
+      );
+    }
+
     return ProductQuantizer._(
       dim,
       subquantizers,
@@ -178,7 +249,6 @@ class ProductQuantizer {
       final centroid = centroidOffset(m, codes[base + m]);
       final width = m == subquantizers - 1 ? lastSubDim : subDim;
       final offset = m * subDim;
-      // Single rounding, as in the fused multiply-add C++ emits here.
       for (var i = 0; i < width; i++) {
         target[offset + i] += scale * centroids[centroid + i];
       }

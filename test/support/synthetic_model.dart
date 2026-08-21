@@ -3,21 +3,45 @@ import 'dart:typed_data';
 
 /// Builds a tiny but complete fastText model in memory.
 ///
-/// Two words and two labels, dense matrices, plain softmax, no character
-/// n-grams. `alpha` maps to label `x`, `beta` to label `y`. Small enough to
-/// keep in a test, real enough to exercise the whole reader.
+/// Three words and two labels by default, dense matrices, plain softmax, no
+/// character n-grams. `alpha` maps to label `x`, `beta` to label `y`. Small
+/// enough to keep in a test, real enough to exercise the whole reader.
+///
+/// The named parameters exist so a test can ask for the shape it needs: a
+/// different loss, word n-grams over a hash table, or labels that score
+/// exactly the same. Everything else stays fixed, which is what makes
+/// [syntheticHeaderOffsets] usable for corrupting a single field.
 ///
 /// Layout: signature, args, dictionary, quantization flag, input matrix,
 /// output quantization flag, output matrix.
-Uint8List buildSyntheticModel() {
+Uint8List buildSyntheticModel({
+  int loss = lossSoftmax,
+  int labelCount = 2,
+  int wordNgrams = 1,
+  int bucket = 0,
+  bool tiedLabels = false,
+  double? poisonedWeight,
+}) {
   const dim = 2;
-  const words = [
+  final words = [
     ('</s>', 3, 0),
     ('alpha', 2, 0),
     ('beta', 1, 0),
-    ('__label__x', 2, 1),
-    ('__label__y', 1, 1),
+    for (var i = 0; i < labelCount; i++)
+      ('__label__${_labelNames[i]}', 10 - i, 1),
   ];
+  final wordCount = words.length - labelCount;
+  final inputRows = wordCount + bucket;
+  // One row per label, each driven by a different component — unless the
+  // test asked for labels that score exactly the same, or for a weight that
+  // is not a number.
+  final outputWeights = <num>[
+    for (var i = 0; i < labelCount; i++)
+      if (tiedLabels) ...[0, 0] else if (i.isEven) ...[10, 0] else ...[0, 10],
+  ];
+  if (poisonedWeight != null && outputWeights.isNotEmpty) {
+    outputWeights[0] = poisonedWeight;
+  }
 
   final out = ByteSink()
     ..int32(793712314) // signature
@@ -27,17 +51,17 @@ Uint8List buildSyntheticModel() {
     ..int32(1) // epoch
     ..int32(1) // minCount
     ..int32(0) // neg
-    ..int32(1) // wordNgrams
-    ..int32(3) // loss = softmax
+    ..int32(wordNgrams)
+    ..int32(loss)
     ..int32(3) // model = supervised
-    ..int32(0) // bucket
+    ..int32(bucket)
     ..int32(0) // minn
     ..int32(0) // maxn: no character n-grams
     ..int32(100) // lrUpdateRate
     ..float64(1e-4) // t
     ..int32(words.length) // size
-    ..int32(3) // nwords
-    ..int32(2) // nlabels
+    ..int32(wordCount) // nwords
+    ..int32(labelCount) // nlabels
     ..int64(6) // ntokens
     ..int64(-1); // pruneidx: the model is not pruned
 
@@ -50,14 +74,68 @@ Uint8List buildSyntheticModel() {
 
   return (out
         ..uint8(0) // the input matrix is not quantized
-        ..int64(3) // rows: nwords + bucket
+        ..int64(inputRows)
         ..int64(dim)
-        ..float32s([0, 0, 1, 0, 0, 1]) // </s>, alpha, beta
+        ..float32s([
+          0, 0, 1, 0, 0, 1, // </s>, alpha, beta
+          // Hash-table rows, each one different, so a word n-gram landing in
+          // a bucket actually moves the hidden vector.
+          for (var i = 0; i < bucket; i++) ...[(i % 7) - 3, 3 - (i % 5)],
+        ])
         ..uint8(0) // the output matrix is not quantized
-        ..int64(2) // rows: one per label
+        ..int64(labelCount)
         ..int64(dim)
-        ..float32s([10, 0, 0, 10])) // x, y
+        ..float32s(outputWeights))
       .bytes;
+}
+
+/// The UTF-8 bytes of [value], for hashing words the way the dictionary
+/// does.
+Uint8List utf8Bytes(String value) => Uint8List.fromList(utf8.encode(value));
+
+/// Loss codes as the model file stores them.
+const lossHierarchicalSoftmax = 1;
+const lossNegativeSampling = 2;
+const lossSoftmax = 3;
+const lossOneVsAll = 4;
+
+const _labelNames = ['x', 'y', 'z', 'w', 'v', 'u', 't', 's'];
+
+/// Byte offsets of the header fields inside [buildSyntheticModel].
+///
+/// The header is fixed-width and comes before anything variable, so a test
+/// can rewrite one field with [patchInt32] and watch the reader reject the
+/// file — which is the only way to reach the checks that guard against a
+/// corrupt model.
+const ({
+  int bucket,
+  int dim,
+  int labelCount,
+  int loss,
+  int maxCharNgram,
+  int pruneIndexSize,
+  int size,
+  int wordCount,
+  int wordNgrams,
+})
+syntheticHeaderOffsets = (
+  dim: 8,
+  wordNgrams: 28,
+  loss: 32,
+  bucket: 40,
+  maxCharNgram: 48,
+  size: 64,
+  wordCount: 68,
+  labelCount: 72,
+  pruneIndexSize: 84,
+);
+
+/// A copy of [model] with the int32 at [offset] replaced by [value].
+Uint8List patchInt32(Uint8List model, int offset, int value) {
+  final copy = Uint8List.fromList(model);
+  ByteData.view(copy.buffer).setInt32(offset, value, Endian.little);
+
+  return copy;
 }
 
 /// A little-endian byte writer, enough to lay out a model file by hand.
@@ -79,8 +157,11 @@ class ByteSink {
   void float64(double value) =>
       _add(8, (d) => d.setFloat64(0, value, Endian.little));
 
-  void float32s(List<double> values) =>
-      _builder.add(Uint8List.view(Float32List.fromList(values).buffer));
+  void float32s(List<num> values) => _builder.add(
+    Uint8List.view(
+      Float32List.fromList([for (final v in values) v.toDouble()]).buffer,
+    ),
+  );
 
   void cString(String value) {
     _builder

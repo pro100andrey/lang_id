@@ -1,0 +1,48 @@
+# The suite is only worth as much as the weights it runs against: the models
+# are not in the repository, and tests that need them skip when they are
+# missing. That is right for a working copy and wrong here, so this fetches
+# both models and sets LANG_ID_REQUIRE_MODELS, which turns a missing file
+# from a skipped test into a failing one.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - run: dart pub get
+      - run: dart analyze --fatal-infos
+      - run: dart format --output=none --set-exit-if-changed .
+
+      # 126 MB over the network, and the published files never change.
+      - name: Cache the pretrained models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: lid176-models-v1
+
+      - run: dart run tool/download_model.dart
+      - run: dart run tool/download_model.dart --full
+
+      - run: dart test
+        env:
+          LANG_ID_REQUIRE_MODELS: '1'
+
+      # Everything that does not need dart:io runs on dart2js as well, where
+      # 64-bit arithmetic and the n-gram hashes are a different problem.
+      - name: Test on the web
+        run: >
+          dart test -p chrome
+          test/binary_reader_test.dart
+          test/dictionary_test.dart
+          test/dictionary_memory_test.dart
+          test/model_validation_test.dart
+          test/synthetic_model_test.dart
+          test/word_ngrams_test.dart

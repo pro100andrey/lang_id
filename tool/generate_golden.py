@@ -91,8 +91,11 @@ def main() -> int:
             cases.append({
                 "text": text,
                 "predictions": [
+                    # Full precision: the value is a float32, so the double
+                    # json stores round-trips it exactly and the comparison
+                    # in the test can be exact rather than to nine places.
                     {"label": label.replace("__label__", ""),
-                     "probability": round(float(probability), 9)}
+                     "probability": float(probability)}
                     for probability, label in predictions
                 ],
                 "sentenceVector": packed.hex(),
