@@ -111,7 +111,7 @@ for (final p in identifier.predict(text, k: 5, threshold: 0.01)) {
   print('$p');
 }
 
-print(identifier.languages.length);   // 176
+print(identifier.labels.length);      // 176
 print(identifier.info);               // dim, loss, dictionary size
 
 // The embedding behind the prediction, if you want it on its own.

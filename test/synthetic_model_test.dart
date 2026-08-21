@@ -41,7 +41,7 @@ void main() {
       expect(identifier.info.args.loss, FastTextLoss.softmax);
       expect(identifier.info.wordCount, 3);
       expect(identifier.info.labelCount, 2);
-      expect(identifier.languages, ['x', 'y']);
+      expect(identifier.labels, ['x', 'y']);
     });
 
     test('tells labels apart by word', () {

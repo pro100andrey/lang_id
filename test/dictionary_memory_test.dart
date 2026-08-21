@@ -51,6 +51,6 @@ void main() {
     bytes.fillRange(0, bytes.length, 0);
 
     expect(identifier.predict('alpha', k: 2), before);
-    expect(identifier.languages, ['x', 'y']);
+    expect(identifier.labels, ['x', 'y']);
   });
 }

@@ -67,7 +67,7 @@ class LanguageIdentifier {
     this._dictionary,
     this._input,
     this._output,
-    this._languages,
+    this._labels,
     this.info,
   ) : _hidden = Float32List(info.args.dim);
 
@@ -176,7 +176,7 @@ class LanguageIdentifier {
   final Dictionary _dictionary;
   final Matrix _input;
   final OutputLayer _output;
-  final List<String> _languages;
+  final List<String> _labels;
   final Float32List _hidden;
 
   /// What `k` means "as many as there are", the way fastText spells it.
@@ -186,11 +186,14 @@ class LanguageIdentifier {
   /// dictionary sizes.
   final ModelInfo info;
 
-  /// The languages the model can tell apart: 176 codes for `lid.176`.
+  /// The labels the model tells apart, with the `__label__` prefix stripped.
+  ///
+  /// Language codes for `lid.176` — 176 of them — and whatever you trained
+  /// on for a classifier of your own.
   ///
   /// Ordered by how often the label occurred in the training corpus, so the
-  /// first entries are the best-represented languages.
-  List<String> get languages => _languages;
+  /// first entries are the best-represented ones.
+  List<String> get labels => _labels;
 
   /// The most likely language of the text, or `null` when there is nothing
   /// to predict from: the text holds nothing but whitespace, or every one of
@@ -224,8 +227,8 @@ class LanguageIdentifier {
   /// at the first newline, the way the fastText CLI behaves.
   ///
   /// `k: -1` asks for every language, which is what the number means to
-  /// fastText itself. Expect far fewer than [languages] back even then, for
-  /// the reason below.
+  /// fastText itself. Expect far fewer than [labels] back even then, for the
+  /// reason below.
   ///
   /// Expect fewer than [k] entries: fastText prunes candidates below its own
   /// floor of `1e-5` while searching, so asking for all 176 languages still
@@ -245,7 +248,7 @@ class LanguageIdentifier {
       throw RangeError.value(k, 'k', 'must be at least 1, or -1 for all');
     }
 
-    final wanted = k == _everyLabel ? _languages.length : k;
+    final wanted = k == _everyLabel ? _labels.length : k;
     final indices = _dictionary.lineToIndices(text, joinLines: joinLines);
     if (indices.isEmpty) {
       return const [];
@@ -254,7 +257,7 @@ class LanguageIdentifier {
 
     return [
       for (final scored in _output.predict(_hidden, wanted, threshold))
-        Prediction(_languages[scored.label], float32(math.exp(scored.score))),
+        Prediction(_labels[scored.label], float32(math.exp(scored.score))),
     ];
   }
 

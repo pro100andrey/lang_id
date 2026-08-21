@@ -85,7 +85,7 @@ Future<void> _readStdin(LanguageIdentifier identifier) async {
 
 void _demo(LanguageIdentifier identifier) {
   stdout.writeln(
-    '${identifier.languages.length} languages known, '
+    '${identifier.labels.length} languages known, '
     'top 3 for each sample:\n',
   );
 

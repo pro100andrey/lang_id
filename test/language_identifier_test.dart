@@ -33,10 +33,10 @@ void main() {
     });
 
     test('knows 176 languages', () {
-      expect(identifier.languages, hasLength(176));
-      expect(identifier.languages, containsAll(['ru', 'en', 'zh', 'ja']));
+      expect(identifier.labels, hasLength(176));
+      expect(identifier.labels, containsAll(['ru', 'en', 'zh', 'ja']));
       expect(
-        identifier.languages.first,
+        identifier.labels.first,
         'en',
         reason: 'ordered by descending frequency',
       );

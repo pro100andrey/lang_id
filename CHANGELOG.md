@@ -74,6 +74,9 @@
 
 ### Changed
 
+- `LanguageIdentifier.languages` is now `labels`. The package reads any
+  supervised fastText classifier, and a model trained on `__label__good` and
+  `__label__garbage` has no languages to list.
 - Parity is checked exactly rather than to nine decimal places within `1e-6`,
   and the suite carries five reference models of its own for the losses and
   the word n-grams `lid.176` cannot reach. Missing weights fail instead of

@@ -363,7 +363,7 @@ void main() {
       downloader: downloader,
     );
 
-    expect(identifier.languages, ['x', 'y']);
+    expect(identifier.labels, ['x', 'y']);
     expect(identifier.identify('alpha')!.label, 'x');
     expect(requestCount, 1);
 
