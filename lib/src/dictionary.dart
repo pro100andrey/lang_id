@@ -278,6 +278,21 @@ class Dictionary {
 
   static final _eosBytes = Uint8List.fromList(utf8.encode(endOfSentence));
 
+  /// Whether [text] holds nothing a model could look at: no character other
+  /// than the ones fastText splits words on.
+  ///
+  /// Every separator is ASCII, so code units are enough — anything else is
+  /// content, whatever it encodes to.
+  static bool isBlank(String text) {
+    for (var i = 0; i < text.length; i++) {
+      if (!_isSeparator(text.codeUnitAt(i))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   static bool _isSeparator(int byte) =>
       byte == 0x20 || // space
       byte == 0x0a || // \n

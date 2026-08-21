@@ -37,6 +37,26 @@ void main() {
       expect(sum, closeTo(1.0, 1e-4));
     });
 
+    group('blank text', () {
+      for (final text in ['', ' ', '   \t\n', '\r\n']) {
+        test('identify(${text.length} blanks) is null', () {
+          expect(identifier.identify(text), isNull);
+        });
+      }
+
+      test('predict still answers, the way fastText does', () {
+        // fastText appends a newline before parsing, which yields the
+        // end-of-sentence token, which is always in the dictionary. So there
+        // is something to score even for an empty line, and predict says so;
+        // only identify calls that nothing.
+        expect(identifier.predict(''), isNotEmpty);
+      });
+
+      test('text that only looks blank is not', () {
+        expect(identifier.identify('\u00a0'), isNotNull);
+      });
+    });
+
     test('unknown words contribute nothing without character n-grams', () {
       // Only the </s> token is left, so both labels are equally likely.
       final result = identifier.predict('unknownword', k: 2);

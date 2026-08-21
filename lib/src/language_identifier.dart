@@ -197,14 +197,27 @@ class LanguageIdentifier {
   List<String> get languages => _languages;
 
   /// The most likely language of the text, or `null` when there is nothing
-  /// to predict from: the text is empty, or every one of its n-grams was
-  /// dropped when the model was pruned.
+  /// to predict from: the text holds nothing but whitespace, or every one of
+  /// its n-grams was dropped when the model was pruned.
+  ///
+  /// The empty case needs saying out loud, because fastText does not treat
+  /// it as one. It appends a newline before parsing, which always yields the
+  /// end-of-sentence token, which is always in the dictionary — so an empty
+  /// line has something to score, and comes back as English at 12.5%. That
+  /// is what [predict] returns, because it reproduces the original. This
+  /// answers `null` instead, so that the obvious check on a form field means
+  /// what it looks like.
   Prediction? identify(
     String text, {
     double threshold = 0.0,
     bool joinLines = true,
   }) {
+    if (Dictionary.isBlank(text)) {
+      return null;
+    }
+
     final best = predict(text, threshold: threshold, joinLines: joinLines);
+
     return best.isEmpty ? null : best.first;
   }
 
