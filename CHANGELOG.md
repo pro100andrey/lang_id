@@ -40,6 +40,37 @@
   purpose.
 - One enormous token no longer leaves the dictionary holding a buffer its
   size for good.
+- `k: -1` asks for every label, the way it does in fastText, instead of being
+  a range error.
+- `Prediction.compareTo` sorts ascending, as `Comparable` asks, with the
+  label breaking a tie so that it agrees with `==`. It used to sort
+  descending, which quietly misled sorted sets and binary searches.
+- A model asking for n-grams while declaring a hash table of no entries is
+  refused instead of dropping them. An empty table on its own stays ordinary,
+  since that is what fastText writes for a model trained without n-grams.
+- Concurrent downloads of the same model no longer share one scratch file,
+  interleave their chunks into it and rename the mixture into place.
+- A compressed response no longer puts progress above 100%, and no longer
+  looks like a truncated download when its announced length is compared with
+  what unpacking produces.
+- A mistake in the caller's own `onProgress` callback is no longer rewritten
+  as a download failure with its stack trace thrown away.
+- `fileIn` joins the file name onto the directory instead of resolving it as
+  a URI, which normalized `..` by text — right only when nothing on the way
+  is a symlink — and made an empty directory mean something other than the
+  working directory.
+- The reader and the downloader share one header check rather than a copy
+  each, raising different exceptions for the same bytes.
+- The example survives standard input that is not UTF-8, which is the input a
+  language identifier is reached for, and reports a first run without the
+  network instead of printing a stack trace.
+- `tool/download_model.dart` no longer reads the argument after `--out`
+  without looking at it: `--out --force` used to fetch into a directory named
+  `--force`.
+- The Flutter sample in the README keeps the offset and the length of the
+  asset it loads, and the sample above it declares the variable it uses.
+- `PretrainedModel.publishedSize` no longer claims to be a progress fallback
+  it never was.
 
 ### Changed
 
