@@ -31,6 +31,10 @@ void main() {
   /// Answers the request and then says nothing at all.
   var goQuiet = false;
 
+  /// Compresses the body, the way a CDN does, so that the announced length
+  /// is the one on the wire and not the one that arrives.
+  var compress = false;
+
   setUp(() async {
     body = buildSyntheticModel();
     status = HttpStatus.ok;
@@ -38,21 +42,30 @@ void main() {
     sendContentLength = true;
     cutAfter = null;
     goQuiet = false;
+    compress = false;
 
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     unawaited(() async {
       await for (final request in server) {
         requestCount++;
         request.response.statusCode = status;
+        final served = compress ? gzip.encode(body) : body;
+        if (compress) {
+          request.response.headers.set(
+            HttpHeaders.contentEncodingHeader,
+            'gzip',
+          );
+        }
+
         if (sendContentLength) {
-          request.response.contentLength = body.length;
+          request.response.contentLength = served.length;
         }
         if (goQuiet) {
           continue;
         }
 
         request.response.add(
-          cutAfter == null ? body : body.sublist(0, cutAfter),
+          cutAfter == null ? served : served.sublist(0, cutAfter),
         );
         try {
           await request.response.close();
@@ -246,6 +259,66 @@ void main() {
     }
   });
 
+  test('a compressed response does not confuse progress', () async {
+    // The announced length is the one on the wire; what arrives is what it
+    // unpacks to. Measuring one against the other put progress at 600% and
+    // would now reject a download that is perfectly fine.
+    compress = true;
+    final seen = <DownloadProgress>[];
+    final file = await downloader.download(
+      PretrainedModel.compact,
+      directory: workDir.path,
+      onProgress: seen.add,
+    );
+
+    expect(await file.readAsBytes(), body);
+    expect(seen.last.totalBytes, isNull);
+    expect(seen.last.fraction, isNull);
+  });
+
+  test('two downloads at once do not spoil each other', () async {
+    // They used to share one scratch file, interleave their chunks into it,
+    // and rename the mixture into place.
+    final second = ModelDownloader(
+      baseUrl: Uri.parse('http://${server.address.host}:${server.port}/'),
+    );
+
+    try {
+      final files = await Future.wait([
+        downloader.download(PretrainedModel.compact, directory: workDir.path),
+        second.download(PretrainedModel.compact, directory: workDir.path),
+      ]);
+
+      for (final file in files) {
+        expect(await file.readAsBytes(), body);
+      }
+      expect(
+        workDir.listSync().whereType<File>().map((f) => f.path).toList(),
+        [endsWith('lid.176.ftz')],
+        reason: 'no scratch files left behind',
+      );
+    } finally {
+      await second.close();
+    }
+  });
+
+  test(
+    'a mistake in onProgress is not reported as a download failure',
+    () async {
+      // Catching everything used to rewrite the caller's own bug into a
+      // ModelDownloadException, without the stack that says where it was.
+      await expectLater(
+        downloader.download(
+          PretrainedModel.compact,
+          directory: workDir.path,
+          onProgress: (_) => throw StateError('a bug in my callback'),
+        ),
+        throwsStateError,
+      );
+      expect(workDir.listSync(), isEmpty);
+    },
+  );
+
   test('fileIn and urlOf point where download will act', () {
     expect(
       downloader.fileIn(workDir.path, PretrainedModel.full).path,
@@ -254,6 +327,21 @@ void main() {
     expect(
       downloader.urlOf(PretrainedModel.full).toString(),
       endsWith('/lid.176.bin'),
+    );
+  });
+
+  test('fileIn takes a directory the way the filesystem does', () {
+    // Resolving the name as a URI normalized `..` by text, which is only
+    // right when nothing on the way is a symlink, and left an empty
+    // directory meaning something other than "here".
+    expect(downloader.fileIn('', PretrainedModel.compact).path, 'lid.176.ftz');
+    expect(
+      downloader.fileIn('a/../b', PretrainedModel.compact).path,
+      contains('a/../b'),
+    );
+    expect(
+      downloader.fileIn('${workDir.path}/', PretrainedModel.compact).path,
+      '${workDir.path}/lid.176.ftz',
     );
   });
 

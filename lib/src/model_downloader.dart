@@ -24,8 +24,12 @@ enum PretrainedModel {
   /// Name of the published file, and of the file written to disk.
   final String fileName;
 
-  /// Size of the published file as of writing. Used only to report progress
-  /// when the server sends no `Content-Length`, never to reject a download.
+  /// Size of the published file as of writing.
+  ///
+  /// A number to show before a download starts — how much a first run is
+  /// about to cost. Nothing here measures against it: a mirror may serve a
+  /// different build, and progress is reported from what the server actually
+  /// announces.
   final int publishedSize;
 }
 
@@ -155,8 +159,23 @@ class ModelDownloader {
   ///
   /// Useful for checking whether the model is already in place without
   /// touching the network.
-  File fileIn(String directory, PretrainedModel model) =>
-      File(Directory(directory).uri.resolve(model.fileName).toFilePath());
+  ///
+  /// The name is joined on rather than resolved as a URI, which would
+  /// normalize `..` by text — `a/../b` is `b` only when `a` is not a symlink,
+  /// and the kernel that later creates the directory knows that and a URI
+  /// does not. An empty [directory] means the working directory.
+  File fileIn(String directory, PretrainedModel model) {
+    if (directory.isEmpty) {
+      return File(model.fileName);
+    }
+
+    final separator =
+        directory.endsWith(Platform.pathSeparator) || directory.endsWith('/')
+        ? ''
+        : Platform.pathSeparator;
+
+    return File('$directory$separator${model.fileName}');
+  }
 
   /// Downloads [model] into [directory], creating the directory if needed.
   ///
@@ -200,10 +219,12 @@ class ModelDownloader {
     }
 
     await Directory(directory).create(recursive: true);
-    final partial = File('${target.path}.part');
-    if (partial.existsSync()) {
-      await partial.delete();
-    }
+    await _discardStaleParts(target);
+    // A name of its own per attempt. Two isolates fetching the same model
+    // used to open the same scratch file, interleave their chunks, and
+    // rename the mixture into place, where it passed the header check and
+    // was cached.
+    final partial = File('${target.path}.$pid.${_attempts++}.part');
 
     try {
       final request = await _httpClient.getUrl(url).timeout(connectionTimeout);
@@ -217,7 +238,17 @@ class ModelDownloader {
         );
       }
 
-      final total = response.contentLength >= 0 ? response.contentLength : null;
+      // A compressed response counts its bytes on the wire, while what
+      // arrives here is what they unpack to, so the announced length is not
+      // the length of anything this can see: it would put progress at 600%
+      // and make the check below reject a download that was fine.
+      final encoding = response.headers.value(
+        HttpHeaders.contentEncodingHeader,
+      );
+      final packed = encoding != null && encoding.toLowerCase() != 'identity';
+      final total = !packed && response.contentLength >= 0
+          ? response.contentLength
+          : null;
       var received = 0;
       final sink = partial.openWrite();
       try {
@@ -245,12 +276,22 @@ class ModelDownloader {
         'the server stopped sending the model',
         uri: url,
       );
-    } on Object catch (error) {
+    } on IOException catch (error, stack) {
+      // Only the failures of reaching a server and writing a file are turned
+      // into a download exception, and the stack comes with them. Catching
+      // everything used to rewrite a bug in the caller's own onProgress
+      // callback as a network problem, and throw away where it happened.
       await _discard(partial);
-      throw ModelDownloadException(
-        'could not download the model: $error',
-        uri: url,
+      Error.throwWithStackTrace(
+        ModelDownloadException(
+          'could not download the model: $error',
+          uri: url,
+        ),
+        stack,
       );
+    } on Object {
+      await _discard(partial);
+      rethrow;
     }
   }
 
@@ -259,6 +300,43 @@ class ModelDownloader {
     _closed = true;
     if (_ownsClient) {
       _httpClient.close();
+    }
+  }
+
+  /// How many attempts this isolate has made, so that two of them never
+  /// pick the same scratch file.
+  static var _attempts = 0;
+
+  /// Removes scratch files left by a run that was killed outright.
+  ///
+  /// Anything younger than this could belong to a download that is still
+  /// going on in another process, which is the whole reason the names are
+  /// unique; anything older is not coming back, and the full model is
+  /// 125 MB to leave lying around.
+  static const _staleAfter = Duration(hours: 1);
+
+  static Future<void> _discardStaleParts(File target) async {
+    final directory = target.parent;
+    if (!directory.existsSync()) {
+      return;
+    }
+
+    final cutoff = DateTime.now().subtract(_staleAfter);
+    final prefix = '${target.path}.';
+    for (final entry in directory.listSync()) {
+      if (entry is! File ||
+          !entry.path.startsWith(prefix) ||
+          !entry.path.endsWith('.part')) {
+        continue;
+      }
+
+      try {
+        if (entry.statSync().modified.isBefore(cutoff)) {
+          await entry.delete();
+        }
+      } on FileSystemException {
+        // Someone else's leftovers, or someone else got there first.
+      }
     }
   }
 
