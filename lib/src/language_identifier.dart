@@ -73,8 +73,10 @@ class LanguageIdentifier {
 
   /// Parses a model from the bytes of a `.bin` or `.ftz` file.
   ///
-  /// The bytes are retained: quantized matrix codes are read as windows over
-  /// the source buffer, with no copying.
+  /// A quantized model keeps the bytes: its matrix codes are read as windows
+  /// over the source buffer rather than copied, which is most of why it is
+  /// small. A dense one does not — its matrix is copied out and the buffer
+  /// can be collected as soon as you let go of it.
   factory LanguageIdentifier.fromBytes(Uint8List bytes) {
     final reader = BinaryReader(bytes);
     final magic = reader.int32();

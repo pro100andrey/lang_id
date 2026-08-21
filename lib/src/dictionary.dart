@@ -39,7 +39,11 @@ class Dictionary {
     final types = Uint8List(size);
     final index = <String, int>{};
     for (var i = 0; i < size; i++) {
-      final word = reader.cString();
+      // Copied, not viewed. A view keeps the whole source buffer alive for
+      // as long as the dictionary lives, and for a dense model that buffer
+      // is 125 MB that nothing else needs once the matrix has been read.
+      // The words themselves are a few hundred kilobytes.
+      final word = Uint8List.fromList(reader.cString());
       words.add(word);
       counts[i] = reader.int64();
       types[i] = reader.uint8(); // entry_type is exactly one byte
@@ -158,7 +162,24 @@ class Dictionary {
   final Map<int, int> _pruneIndex;
 
   final List<List<int>?> _subwordCache;
-  var _wrapBuffer = Uint8List(64);
+  var _wrapBuffer = Uint8List(_initialWrapBuffer);
+
+  static const _initialWrapBuffer = 64;
+
+  /// The longest word the shared scratch buffer is kept for.
+  ///
+  /// Words are short: the longest anyone writes runs to a few dozen
+  /// characters. A token, though, is whatever sits between two spaces, and a
+  /// base64 blob or a line of minified JavaScript arrives as one of any size.
+  /// Growing the buffer to fit it used to leave it that size for the life of
+  /// the dictionary, with nothing to release it — and the README asks for one
+  /// long-lived identifier per isolate, so a server reading text it did not
+  /// write got a memory floor chosen by whoever sent the text.
+  static const _maxWrapBuffer = 1024;
+
+  /// Size of the reusable buffer. Exposed so that a test can hold the
+  /// dictionary to the promise above.
+  int get scratchSize => _wrapBuffer.length;
 
   /// `true` when the dictionary has been pruned, as in `lid.176.ftz`.
   bool get isPruned => _pruneIndexSize >= 0;
@@ -393,12 +414,28 @@ class Dictionary {
   /// the edges of a word differ from the same n-grams in the middle.
   Uint8List _wrap(Uint8List data, int start, int end) {
     final length = end - start;
-    if (_wrapBuffer.length < length + 2) {
-      _wrapBuffer = Uint8List(length + 2);
+    final buffer = _scratchFor(length + 2);
+    buffer[0] = _bow;
+    buffer.setRange(1, length + 1, data, start);
+    buffer[length + 1] = _eow;
+
+    return buffer;
+  }
+
+  /// A buffer of at least [size] bytes.
+  ///
+  /// Ordinary words share one that grows to fit them; anything past
+  /// [_maxWrapBuffer] gets a buffer of its own, which is rubbish the moment
+  /// its n-grams have been taken.
+  Uint8List _scratchFor(int size) {
+    if (size > _maxWrapBuffer) {
+      return Uint8List(size);
     }
-    _wrapBuffer[0] = _bow;
-    _wrapBuffer.setRange(1, length + 1, data, start);
-    _wrapBuffer[length + 1] = _eow;
+
+    if (_wrapBuffer.length < size) {
+      _wrapBuffer = Uint8List(size);
+    }
+
     return _wrapBuffer;
   }
 
