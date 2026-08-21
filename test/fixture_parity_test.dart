@@ -18,8 +18,8 @@ import 'support/parity.dart';
 /// tool/generate_fixtures.py regenerates both. They are a few kilobytes each,
 /// so unlike the weights they live in the repository and always run.
 ///
-/// The corpus behind them separates its labels by word order alone — `a b a b`
-/// against `b a b a` — which no model can learn from single words. A port
+/// The corpus behind them separates its labels by word order alone — `a b a
+/// b` against `b a b a` — which no model can learn from single words. A port
 /// that ignores wordNgrams cannot reproduce these answers.
 void main() {
   const models = [

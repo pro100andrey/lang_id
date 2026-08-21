@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'language_identifier.dart';
 import 'model_format.dart';
 
 /// A pretrained language identification model published by Facebook.
@@ -96,21 +98,37 @@ class ModelDownloadException implements Exception {
 /// }
 /// ```
 ///
-/// A model already present in the directory is returned as is; pass
-/// `force: true` to fetch it again. The download goes to a `.part` file and is
-/// renamed into place only once it is complete and its header checks out, so
-/// an interrupted run never leaves a half-written model behind.
+/// A model already present in the directory is returned as is, unless it
+/// turns out not to be a model, in which case it is thrown away and fetched
+/// again; pass `force: true` to refetch regardless. The download goes to a
+/// `.part` file and is renamed into place only once it is complete and checks
+/// out, so an interrupted run never leaves a half-written model behind.
 class ModelDownloader {
   /// Creates a downloader.
   ///
   /// [baseUrl] lets you point at a mirror or an internal copy; it must end
   /// with a slash for the file name to resolve against it. Pass [httpClient]
   /// to reuse a client you already configured — proxies, certificates,
-  /// timeouts; in that case closing it stays your responsibility.
-  ModelDownloader({Uri? baseUrl, HttpClient? httpClient})
-    : baseUrl = baseUrl ?? defaultBaseUrl,
-      _httpClient = httpClient ?? HttpClient(),
-      _ownsClient = httpClient == null;
+  /// timeouts; in that case closing it stays your responsibility, and
+  /// [connectionTimeout] is left to whatever you set on it.
+  ///
+  /// [connectionTimeout] bounds reaching the server and getting an answer
+  /// out of it, [stallTimeout] the longest silence allowed in the middle of
+  /// the body. Without them a server that accepts the connection and then
+  /// says nothing holds the caller forever — and this is the call an app
+  /// makes while starting up.
+  ModelDownloader({
+    Uri? baseUrl,
+    HttpClient? httpClient,
+    this.connectionTimeout = const Duration(seconds: 30),
+    this.stallTimeout = const Duration(seconds: 60),
+  }) : baseUrl = baseUrl ?? defaultBaseUrl,
+       _httpClient = httpClient ?? HttpClient(),
+       _ownsClient = httpClient == null {
+    if (_ownsClient) {
+      _httpClient.connectionTimeout = connectionTimeout;
+    }
+  }
 
   /// Where Facebook publishes the models.
   static final Uri defaultBaseUrl = Uri.parse(
@@ -119,6 +137,12 @@ class ModelDownloader {
 
   /// Where models are fetched from; ends with a slash.
   final Uri baseUrl;
+
+  /// How long the server has to answer at all.
+  final Duration connectionTimeout;
+
+  /// How long the body may go quiet before the download is abandoned.
+  final Duration stallTimeout;
 
   final HttpClient _httpClient;
   final bool _ownsClient;
@@ -137,10 +161,13 @@ class ModelDownloader {
   /// Downloads [model] into [directory], creating the directory if needed.
   ///
   /// Returns the file on disk. When it is already there and [force] is false,
-  /// nothing is fetched. [onProgress] is called as bytes arrive.
+  /// nothing is fetched — unless what is there is not a model, which is
+  /// thrown away and fetched again rather than reported forever.
+  /// [onProgress] is called as bytes arrive.
   ///
   /// Throws [ModelDownloadException] when the server refuses, the connection
-  /// fails, or the bytes that arrive are not a fastText model.
+  /// fails or stalls, or the bytes that arrive are not a whole fastText
+  /// model.
   Future<File> download(
     PretrainedModel model, {
     required String directory,
@@ -151,10 +178,25 @@ class ModelDownloader {
       throw StateError('this ModelDownloader has been closed');
     }
 
+    final url = urlOf(model);
     final target = fileIn(directory, model);
-    if (!force && target.existsSync()) {
-      await _verifyHeader(target, model);
-      return target;
+    try {
+      if (!force && target.existsSync()) {
+        if (await _looksLikeModel(target)) {
+          return target;
+        }
+
+        // Whatever is there is not a model — an error page saved under the
+        // right name, or the tail of a download that was cut short. Reporting
+        // that on every call for the rest of time only leaves the caller with
+        // a file to delete by hand.
+        await target.delete();
+      }
+    } on FileSystemException catch (error) {
+      throw ModelDownloadException(
+        'could not look at ${target.path}: $error',
+        uri: url,
+      );
     }
 
     await Directory(directory).create(recursive: true);
@@ -163,10 +205,9 @@ class ModelDownloader {
       await partial.delete();
     }
 
-    final url = urlOf(model);
     try {
-      final request = await _httpClient.getUrl(url);
-      final response = await request.close();
+      final request = await _httpClient.getUrl(url).timeout(connectionTimeout);
+      final response = await request.close().timeout(connectionTimeout);
       if (response.statusCode != HttpStatus.ok) {
         await response.drain<void>();
         throw ModelDownloadException(
@@ -180,7 +221,7 @@ class ModelDownloader {
       var received = 0;
       final sink = partial.openWrite();
       try {
-        await for (final chunk in response) {
+        await for (final chunk in response.timeout(stallTimeout)) {
           sink.add(chunk);
           received += chunk.length;
           onProgress?.call(DownloadProgress(model, received, total));
@@ -189,14 +230,21 @@ class ModelDownloader {
         await sink.close();
       }
 
-      await _verifyHeader(partial, model);
+      await _verifyWhole(partial, model, received, total);
       if (target.existsSync()) {
         await target.delete();
       }
+
       return await partial.rename(target.path);
     } on ModelDownloadException {
       await _discard(partial);
       rethrow;
+    } on TimeoutException {
+      await _discard(partial);
+      throw ModelDownloadException(
+        'the server stopped sending the model',
+        uri: url,
+      );
     } on Object catch (error) {
       await _discard(partial);
       throw ModelDownloadException(
@@ -224,10 +272,59 @@ class ModelDownloader {
     }
   }
 
-  /// Checks the four magic bytes and the format version. A truncated download
-  /// or an HTML error page saved as a model fails here rather than much later,
-  /// inside the reader.
-  static Future<void> _verifyHeader(File file, PretrainedModel model) async {
+  /// Whether [file] at least begins like a fastText model.
+  ///
+  /// Used on a file that is already in place, where reading all of it — 125
+  /// MB, for the full model — to answer a question the caller is about to
+  /// answer anyway would be wasteful.
+  static Future<bool> _looksLikeModel(File file) async {
+    try {
+      await _verifyHeader(file, null);
+
+      return true;
+    } on ModelDownloadException {
+      return false;
+    }
+  }
+
+  /// Checks that what arrived is a whole model.
+  ///
+  /// The byte count is the cheap half and only works when the server said
+  /// how much it was sending. Without a `Content-Length` — a chunked or
+  /// close-delimited response — a body cut in half ends the stream just as
+  /// normally as a complete one, and the eight bytes of the header are
+  /// already there, so the truncated file used to be renamed into place and
+  /// cached forever. The only thing left that can tell is reading it.
+  static Future<void> _verifyWhole(
+    File file,
+    PretrainedModel model,
+    int received,
+    int? total,
+  ) async {
+    if (total != null) {
+      if (received != total) {
+        throw ModelDownloadException(
+          '${model.fileName} stopped after $received of $total bytes',
+        );
+      }
+
+      await _verifyHeader(file, model);
+
+      return;
+    }
+
+    try {
+      LanguageIdentifier.fromBytes(await file.readAsBytes());
+    } on FormatException catch (error) {
+      throw ModelDownloadException(
+        '${model.fileName} did not arrive whole: ${error.message}',
+      );
+    }
+  }
+
+  /// Checks the four magic bytes and the format version. An HTML error page
+  /// saved as a model fails here rather than much later, inside the reader.
+  static Future<void> _verifyHeader(File file, PretrainedModel? model) async {
     final handle = await file.open();
     Uint8List head;
     try {
@@ -252,7 +349,7 @@ class ModelDownloader {
     final version = data.getInt32(4, Endian.little);
     if (version > fastTextSupportedVersion) {
       throw ModelDownloadException(
-        '${model.fileName} has format version '
+        '${model?.fileName ?? file.path} has format version '
         '$version, newer than the supported one '
         '($fastTextSupportedVersion)',
       );

@@ -11,9 +11,9 @@ import 'support/synthetic_model.dart';
 /// which runs against models trained by the original fastText. What that
 /// cannot do is run on the web, and the chain here is exactly the arithmetic
 /// the web breaks: it wraps at 2^64, which a dart2js `int` cannot hold, and
-/// it sign-extends each hash through `int32_t`. So the same chain is computed
-/// with [BigInt] — slow, obvious and impossible to get subtly wrong — and the
-/// two are compared.
+/// it sign-extends each hash through `int32_t`. So the same chain is
+/// computed with [BigInt] — slow, obvious and impossible to get subtly wrong
+/// — and the two are compared.
 void main() {
   const bucket = 100;
   const wordCount = 3;

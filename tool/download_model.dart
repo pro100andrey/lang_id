@@ -22,15 +22,17 @@ Future<void> main(List<String> args) async {
 
   final downloader = ModelDownloader();
   final target = downloader.fileIn(directory, model);
-  if (target.existsSync() && !force) {
-    stdout.writeln(
-      '${target.path} is already here (${_humanSize(target.lengthSync())})',
-    );
-    await downloader.close();
-    return;
-  }
-
-  stdout.writeln('Downloading ${downloader.urlOf(model)}');
+  final wasHere = target.existsSync() && !force;
+  // Whether the file is usable is the downloader's judgement, not ours: it
+  // returns straight away when the model is already in place, and refetches
+  // when what is in place is an error page saved under the right name. This
+  // script used to answer "already here" to that file and exit successfully,
+  // while the library refused the very same bytes.
+  stdout.writeln(
+    wasHere
+        ? 'Checking ${target.path}'
+        : 'Downloading ${downloader.urlOf(model)}',
+  );
   try {
     final file = await downloader.download(
       model,
@@ -39,7 +41,7 @@ Future<void> main(List<String> args) async {
       onProgress: _report,
     );
     stdout
-      ..writeln('\nDone: ${file.path}')
+      ..writeln('\nDone: ${file.path} (${_humanSize(file.lengthSync())})')
       ..writeln(
         '\nThe model is distributed under CC BY-SA 3.0, '
         '(c) Facebook, Inc. — see NOTICE.md',

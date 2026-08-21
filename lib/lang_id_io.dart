@@ -37,11 +37,16 @@ LanguageIdentifier loadModelSync(String path) =>
 /// );
 /// ```
 ///
-/// Pass [downloader] to control the mirror, the [HttpClient] or the retry
-/// policy; otherwise a default one is created and closed here.
+/// A file already in [directory] is read as it is; one that turns out not to
+/// be a model is fetched again. Pass [force] to fetch even when the file is
+/// fine.
+///
+/// Pass [downloader] to control the mirror, the [HttpClient] or the
+/// timeouts; otherwise a default one is created and closed here.
 Future<LanguageIdentifier> loadOrDownloadModel(
   PretrainedModel model, {
   required String directory,
+  bool force = false,
   void Function(DownloadProgress progress)? onProgress,
   ModelDownloader? downloader,
 }) async {
@@ -50,6 +55,7 @@ Future<LanguageIdentifier> loadOrDownloadModel(
     final file = await client.download(
       model,
       directory: directory,
+      force: force,
       onProgress: onProgress,
     );
     return .fromBytes(await file.readAsBytes());

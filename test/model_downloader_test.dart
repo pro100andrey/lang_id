@@ -24,11 +24,20 @@ void main() {
   var requestCount = 0;
   var sendContentLength = true;
 
+  /// Stops the response after this many bytes, without saying so — what a
+  /// connection cut in the middle looks like when there is no Content-Length.
+  int? cutAfter;
+
+  /// Answers the request and then says nothing at all.
+  var goQuiet = false;
+
   setUp(() async {
     body = buildSyntheticModel();
     status = HttpStatus.ok;
     requestCount = 0;
     sendContentLength = true;
+    cutAfter = null;
+    goQuiet = false;
 
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     unawaited(() async {
@@ -38,8 +47,19 @@ void main() {
         if (sendContentLength) {
           request.response.contentLength = body.length;
         }
-        request.response.add(body);
-        await request.response.close();
+        if (goQuiet) {
+          continue;
+        }
+
+        request.response.add(
+          cutAfter == null ? body : body.sublist(0, cutAfter),
+        );
+        try {
+          await request.response.close();
+        } on HttpException {
+          // Closing after fewer bytes than announced is the whole point of
+          // the truncation cases; the client is the one that has to notice.
+        }
       }
     }());
 
@@ -166,6 +186,64 @@ void main() {
       downloader.download(PretrainedModel.compact, directory: workDir.path),
       throwsA(isA<ModelDownloadException>()),
     );
+  });
+
+  test('a body cut short without a Content-Length is rejected', () async {
+    // The dangerous shape: the stream ends normally, and the eight header
+    // bytes are already there, so nothing downstream notices. The file used
+    // to be renamed into place and then returned from the cache forever.
+    sendContentLength = false;
+    cutAfter = 20;
+
+    await expectLater(
+      downloader.download(PretrainedModel.compact, directory: workDir.path),
+      throwsA(isA<ModelDownloadException>()),
+    );
+    expect(workDir.listSync(), isEmpty);
+  });
+
+  test('a body cut short of its Content-Length is rejected', () async {
+    cutAfter = 20;
+
+    await expectLater(
+      downloader.download(PretrainedModel.compact, directory: workDir.path),
+      throwsA(isA<ModelDownloadException>()),
+    );
+    expect(workDir.listSync(), isEmpty);
+  });
+
+  test(
+    'a model already on disk that is not a model is fetched again',
+    () async {
+      final target = downloader.fileIn(workDir.path, PretrainedModel.compact);
+      await target.writeAsString('<html>error</html>');
+
+      final file = await downloader.download(
+        PretrainedModel.compact,
+        directory: workDir.path,
+      );
+
+      expect(requestCount, 1, reason: 'the broken file must not be kept');
+      expect(await file.readAsBytes(), body);
+    },
+  );
+
+  test('a server that goes quiet does not hang the caller', () async {
+    goQuiet = true;
+    final impatient = ModelDownloader(
+      baseUrl: Uri.parse('http://${server.address.host}:${server.port}/'),
+      connectionTimeout: const Duration(milliseconds: 200),
+      stallTimeout: const Duration(milliseconds: 200),
+    );
+
+    try {
+      await expectLater(
+        impatient.download(PretrainedModel.compact, directory: workDir.path),
+        throwsA(isA<ModelDownloadException>()),
+      );
+    } finally {
+      await impatient.close();
+    }
   });
 
   test('fileIn and urlOf point where download will act', () {
