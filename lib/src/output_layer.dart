@@ -85,14 +85,27 @@ final Float32List _sigmoidTable = () {
       float32(float32((i * 2 * _maxSigmoid).toDouble()) / _sigmoidTableSize) -
           _maxSigmoid,
     );
-    // Here fastText sums in double, unlike the formula above.
-    table[i] = 1.0 / (1.0 + math.exp(-x));
+    // `x` is a float, so C++ picks the float overload of exp here, exactly
+    // as it does in the formula above. What differs is the sum: this one is
+    // written against a double literal and stays in double.
+    table[i] = 1.0 / (1.0 + float32(math.exp(-x)));
   }
   return table;
 }();
 
-/// Accumulator for the k best labels: a list kept sorted by descending
-/// score. k is a single-digit number here, so insertion sort beats any heap.
+/// Accumulator for the k best labels, kept the way fastText keeps them.
+///
+/// C++ holds the candidates in a `std::vector` treated as a heap ordered by
+/// `comparePairs`, so the front is the worst of the k found so far, and turns
+/// it into an answer with `sort_heap`. Labels that score exactly the same
+/// come out in an order that is an artefact of those heap operations, and a
+/// list kept sorted by insertion does not reproduce it: on a tie an insert
+/// keeps the older entry in front, while the heap does not, and the two
+/// disagree about which label wins at k = 1.
+///
+/// Real models reach this. Two labels of a model trained with negative
+/// sampling score bit-identically on an empty line, and the reference returns
+/// them the other way round — see test/fixtures.
 class _TopK {
   _TopK(this.k);
 
@@ -101,20 +114,93 @@ class _TopK {
 
   bool get isFull => _items.length >= k;
 
-  double get worstScore => _items.last.score;
+  /// The worst of the scores kept so far: the front of the heap.
+  double get worstScore => _items.first.score;
 
   void add(int label, double score) {
-    var i = _items.length;
-    while (i > 0 && _items[i - 1].score < score) {
-      i--;
-    }
-    _items.insert(i, ScoredLabel(label, score));
+    _items.add(ScoredLabel(label, score));
+    _siftUp(_items.length - 1);
     if (_items.length > k) {
+      _popFront(_items.length);
       _items.removeLast();
     }
   }
 
-  List<ScoredLabel> get result => _items;
+  /// The kept labels, best score first. Consumes the heap, so read it once.
+  List<ScoredLabel> get result {
+    // `sort_heap`: move the front past the end of the heap, over and over,
+    // which leaves the range sorted by the same comparison.
+    for (var end = _items.length; end > 1; end--) {
+      _popFront(end);
+    }
+
+    return _items;
+  }
+
+  /// `comparePairs`: with a "greater" comparison the heap is a min-heap by
+  /// score, which is what makes the front the first candidate to drop out.
+  static bool _scoresAbove(ScoredLabel a, ScoredLabel b) => a.score > b.score;
+
+  /// `std::push_heap`: the last element climbs while its parent scores above
+  /// it.
+  void _siftUp(int index) {
+    final value = _items[index];
+    var i = index;
+    while (i > 0) {
+      final parent = (i - 1) ~/ 2;
+      if (!_scoresAbove(_items[parent], value)) {
+        break;
+      }
+
+      _items[i] = _items[parent];
+      i = parent;
+    }
+
+    _items[i] = value;
+  }
+
+  /// `std::pop_heap` over `[0, end)`: the front leaves the heap and lands
+  /// just past its end, which is what makes repeated pops a sort.
+  ///
+  /// The standard fixes the heap property but not what happens to equal
+  /// elements, and the two library implementations take the same route: the
+  /// hole from the front walks all the way down to a leaf before the tail
+  /// element is put in and sifted back up. Stopping the descent early — the
+  /// textbook sift-down — reorders ties differently and disagrees with the
+  /// reference on about half of them.
+  void _popFront(int end) {
+    final front = _items[0];
+    final hole = _sinkHoleToLeaf(end);
+    final last = end - 1;
+    if (hole == last) {
+      _items[hole] = front;
+
+      return;
+    }
+
+    _items[hole] = _items[last];
+    _items[last] = front;
+    _siftUp(hole);
+  }
+
+  /// Walks the hole left at the front down to a leaf, always following the
+  /// child that scores lower, and answers where it stopped.
+  int _sinkHoleToLeaf(int end) {
+    var hole = 0;
+    var child = 0;
+    while (true) {
+      child = 2 * child + 1;
+      if (child + 1 < end && _scoresAbove(_items[child], _items[child + 1])) {
+        child++;
+      }
+
+      _items[hole] = _items[child];
+      hole = child;
+      if (child > (end - 2) ~/ 2) {
+        return hole;
+      }
+    }
+  }
 }
 
 /// Hierarchical softmax: labels are the leaves of a Huffman tree and the
@@ -229,7 +315,9 @@ class SoftmaxLayer implements OutputLayer {
 
     var sum = 0.0;
     for (var i = 0; i < labelCount; i++) {
-      scores[i] = math.exp(scores[i] - max);
+      // Both operands are float32 and C++ keeps the difference there before
+      // handing it to exp; the store rounds what comes back.
+      scores[i] = math.exp(float32(scores[i] - max));
       sum = float32(sum + scores[i]);
     }
 
@@ -264,8 +352,13 @@ class BinaryLogisticLayer implements OutputLayer {
 /// softmax and sigmoid layers.
 List<ScoredLabel> _bestOf(Float32List probabilities, int k, double threshold) {
   final top = _TopK(k);
+  // C++ takes the threshold as a float, so the comparison below is between
+  // two float32 values. Hierarchical softmax rounds it the same way, through
+  // the argument of _stableLog; without this the same threshold would mean
+  // two slightly different things depending on the loss.
+  final cutoff = float32(threshold);
   for (var i = 0; i < probabilities.length; i++) {
-    if (probabilities[i] < threshold) {
+    if (probabilities[i] < cutoff) {
       continue;
     }
 

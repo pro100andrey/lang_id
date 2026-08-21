@@ -1,0 +1,176 @@
+{
+ "model": "softmax",
+ "loss": "softmax",
+ "wordNgrams": 1,
+ "k": 5,
+ "cases": [
+  {
+   "text": "a b a b",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5011953115463257
+    },
+    {
+     "label": "ab",
+     "probability": 0.4988246560096741
+    }
+   ],
+   "sentenceVector": "7b8cda3aa842ceba0000000000000000"
+  },
+  {
+   "text": "b a b a",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5011953115463257
+    },
+    {
+     "label": "ab",
+     "probability": 0.4988246560096741
+    }
+   ],
+   "sentenceVector": "7b8cda3aa842ceba0000000000000000"
+  },
+  {
+   "text": "a b",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.501041829586029
+    },
+    {
+     "label": "ab",
+     "probability": 0.4989781677722931
+    }
+   ],
+   "sentenceVector": "a33fbe3aee8db3ba0000000000000000"
+  },
+  {
+   "text": "b a",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.501041829586029
+    },
+    {
+     "label": "ab",
+     "probability": 0.4989781677722931
+    }
+   ],
+   "sentenceVector": "a33fbe3aee8db3ba0000000000000000"
+  },
+  {
+   "text": "a a b b",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5011953115463257
+    },
+    {
+     "label": "ab",
+     "probability": 0.4988246560096741
+    }
+   ],
+   "sentenceVector": "7b8cda3aa842ceba0000000000000000"
+  },
+  {
+   "text": "a b c d",
+   "predictions": [
+    {
+     "label": "ab",
+     "probability": 0.5262971520423889
+    },
+    {
+     "label": "ba",
+     "probability": 0.4737228453159332
+    }
+   ],
+   "sentenceVector": "819b17bd5c130f3d0000000000000000"
+  },
+  {
+   "text": "c d",
+   "predictions": [
+    {
+     "label": "ab",
+     "probability": 0.5446865558624268
+    },
+    {
+     "label": "ba",
+     "probability": 0.455333411693573
+    }
+   ],
+   "sentenceVector": "ec0e81bd4497733d0000000000000000"
+  },
+  {
+   "text": "a",
+   "predictions": [
+    {
+     "label": "ab",
+     "probability": 0.5359805822372437
+    },
+    {
+     "label": "ba",
+     "probability": 0.4640394151210785
+    }
+   ],
+   "sentenceVector": "b79f4fbdeeef433d0000000000000000"
+  },
+  {
+   "text": "",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5002744197845459
+    },
+    {
+     "label": "ab",
+     "probability": 0.49974554777145386
+    }
+   ],
+   "sentenceVector": "9cfdc2391f19b8b90000000000000000"
+  },
+  {
+   "text": "   ",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5002744197845459
+    },
+    {
+     "label": "ab",
+     "probability": 0.49974554777145386
+    }
+   ],
+   "sentenceVector": "9cfdc2391f19b8b90000000000000000"
+  },
+  {
+   "text": "__label__ab a b",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.501041829586029
+    },
+    {
+     "label": "ab",
+     "probability": 0.4989781677722931
+    }
+   ],
+   "sentenceVector": "a33fbe3aee8db3ba0000000000000000"
+  },
+  {
+   "text": "a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b a b ",
+   "predictions": [
+    {
+     "label": "ba",
+     "probability": 0.5014066696166992
+    },
+    {
+     "label": "ab",
+     "probability": 0.4986133575439453
+    }
+   ],
+   "sentenceVector": "7ec2003b2a09f3ba0000000000000000"
+  }
+ ]
+}
