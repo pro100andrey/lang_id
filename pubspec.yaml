@@ -2,7 +2,7 @@ name: lang_id
 description: >-
   Supervised fastText classifiers in pure Dart: reads .bin and quantized .ftz
   models and runs inference. Language identification with lid.176 included.
-version: 0.1.0
+version: 0.2.0
 
 repository: https://github.com/pro100andrey/lang_id
 issue_tracker: https://github.com/pro100andrey/lang_id/issues
