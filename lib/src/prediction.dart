@@ -1,3 +1,5 @@
+import 'language_identifier.dart';
+
 /// A label and its probability.
 class Prediction implements Comparable<Prediction> {
   /// Pairs a [label] with the [probability] the model gave it.
@@ -16,8 +18,20 @@ class Prediction implements Comparable<Prediction> {
   /// show a percentage that never exceeds 100.
   final double probability;
 
+  /// Orders by [probability], least likely first, and by [label] when two
+  /// are equally likely.
+  ///
+  /// This is the ascending order [Comparable] asks for, so `sort()` leaves
+  /// the likeliest last. It used to be the other way round, which read well
+  /// at a call site and lied to everything that takes a [Comparable] at its
+  /// word. You rarely need it: [LanguageIdentifier.predict] already answers
+  /// most likely first.
   @override
-  int compareTo(Prediction other) => other.probability.compareTo(probability);
+  int compareTo(Prediction other) {
+    final byProbability = probability.compareTo(other.probability);
+
+    return byProbability != 0 ? byProbability : label.compareTo(other.label);
+  }
 
   @override
   String toString() => '$label ${(probability * 100).toStringAsFixed(1)}%';

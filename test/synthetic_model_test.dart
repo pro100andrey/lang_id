@@ -7,6 +7,26 @@ import 'support/synthetic_model.dart';
 /// without needing downloaded weights or `dart:io`, so it also runs on the
 /// web.
 void main() {
+  group('Prediction', () {
+    const likely = Prediction('en', 0.9);
+    const unlikely = Prediction('ru', 0.1);
+
+    test('sorts ascending, the way Comparable asks', () {
+      // It used to sort descending, which reads well next to predict and
+      // means the wrong thing to everything else that takes a Comparable.
+      expect(([likely, unlikely]..sort()).last, likely);
+      expect(likely.compareTo(unlikely), greaterThan(0));
+    });
+
+    test('equally likely labels are ordered by name, never as equal', () {
+      const first = Prediction('be', 0.5);
+      const second = Prediction('uk', 0.5);
+
+      expect(first.compareTo(second), lessThan(0));
+      expect(first.compareTo(first), 0);
+    });
+  });
+
   group('synthetic model', () {
     late LanguageIdentifier identifier;
 
@@ -55,6 +75,16 @@ void main() {
       test('text that only looks blank is not', () {
         expect(identifier.identify('\u00a0'), isNotNull);
       });
+    });
+
+    test('k of -1 asks for every label, as it does in fastText', () {
+      expect(identifier.predict('alpha', k: -1), hasLength(2));
+      expect(identifier.predict('alpha'), hasLength(1));
+    });
+
+    test('any other k below one is still an error', () {
+      expect(() => identifier.predict('alpha', k: 0), throwsRangeError);
+      expect(() => identifier.predict('alpha', k: -2), throwsRangeError);
     });
 
     test('unknown words contribute nothing without character n-grams', () {

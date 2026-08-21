@@ -188,6 +188,9 @@ class LanguageIdentifier {
   final List<String> _languages;
   final Float32List _hidden;
 
+  /// What `k` means "as many as there are", the way fastText spells it.
+  static const _everyLabel = -1;
+
   /// What the file said about itself: format version, dimensions, loss,
   /// dictionary sizes.
   final ModelInfo info;
@@ -229,6 +232,10 @@ class LanguageIdentifier {
   /// folds multi-line text into a single line; with `false` the parse stops
   /// at the first newline, the way the fastText CLI behaves.
   ///
+  /// `k: -1` asks for every language, which is what the number means to
+  /// fastText itself. Expect far fewer than [languages] back even then, for
+  /// the reason below.
+  ///
   /// Expect fewer than [k] entries: fastText prunes candidates below its own
   /// floor of `1e-5` while searching, so asking for all 176 languages still
   /// returns a handful. See [Prediction.probability] for why the numbers can
@@ -243,10 +250,11 @@ class LanguageIdentifier {
     double threshold = 0.0,
     bool joinLines = true,
   }) {
-    if (k < 1) {
-      throw RangeError.value(k, 'k', 'must be at least 1');
+    if (k < 1 && k != _everyLabel) {
+      throw RangeError.value(k, 'k', 'must be at least 1, or -1 for all');
     }
 
+    final wanted = k == _everyLabel ? _languages.length : k;
     final indices = _dictionary.lineToIndices(text, joinLines: joinLines);
     if (indices.isEmpty) {
       return const [];
@@ -254,7 +262,7 @@ class LanguageIdentifier {
     _fillHidden(_hidden, indices);
 
     return [
-      for (final scored in _output.predict(_hidden, k, threshold))
+      for (final scored in _output.predict(_hidden, wanted, threshold))
         Prediction(_languages[scored.label], float32(math.exp(scored.score))),
     ];
   }
@@ -270,8 +278,14 @@ class LanguageIdentifier {
   /// meanings — two English sentences about different things still land close
   /// together.
   ///
-  /// Returns a fresh list of `info.args.dim` values; a text with nothing to
-  /// embed gives back zeros, as it does in fastText.
+  /// Returns a fresh list of `info.args.dim` values.
+  ///
+  /// There is no such thing as a text with nothing to embed, whatever this
+  /// used to say: fastText appends a newline before parsing, which yields
+  /// the end-of-sentence token, which is in every dictionary — so an empty
+  /// string comes back as that token's own vector rather than as zeros. Use
+  /// [Dictionary.isBlank], which is what [identify] does, to tell whether
+  /// there was anything to look at.
   Float32List sentenceVector(String text, {bool joinLines = true}) {
     final vector = Float32List(info.args.dim);
     final indices = _dictionary.lineToIndices(text, joinLines: joinLines);
