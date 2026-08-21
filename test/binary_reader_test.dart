@@ -44,6 +44,42 @@ void main() {
       expect(reader.float32List(3), [1.5, -2.25, 3.75]);
     });
 
+    test('reading past the end is a FormatException, not a RangeError', () {
+      expect(() => BinaryReader(Uint8List(3)).int32(), throwsFormatException);
+      expect(() => BinaryReader(Uint8List(4)).int64(), throwsFormatException);
+      expect(() => BinaryReader(Uint8List(0)).uint8(), throwsFormatException);
+      expect(() => BinaryReader(Uint8List(0)).boolean(), throwsFormatException);
+      expect(() => BinaryReader(Uint8List(4)).float64(), throwsFormatException);
+      expect(
+        () => BinaryReader(Uint8List(8)).float32List(3),
+        throwsFormatException,
+      );
+      expect(
+        () => BinaryReader(Uint8List(2)).byteView(3),
+        throwsFormatException,
+      );
+    });
+
+    test('a count from a corrupt header cannot allocate', () {
+      // The size fields are just numbers in the file: a big one has to fail
+      // against what is left rather than try to allocate gigabytes.
+      expect(
+        () => BinaryReader(Uint8List(16)).float32List(0x7FFFFFFF),
+        throwsFormatException,
+      );
+      expect(
+        () => BinaryReader(Uint8List(16)).float32List(-1),
+        throwsFormatException,
+      );
+    });
+
+    test('an unterminated string is a FormatException', () {
+      expect(
+        () => BinaryReader(bytesOf([0x74, 0x68, 0x65])).cString(),
+        throwsFormatException,
+      );
+    });
+
     test('the offset advances by exactly what was read', () {
       final reader = BinaryReader(Uint8List(32))
         ..int32()
