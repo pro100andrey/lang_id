@@ -56,11 +56,13 @@ class DenseMatrix implements Matrix {
   double dotRow(Float32List vector, int row) {
     final offset = row * columns;
     var sum = 0.0;
-    // The product is deliberately not rounded on its own: C++ contracts
-    // `d += a * b` into a single fused multiply-add, so there is exactly one
-    // rounding step, which is what storing a double product into float32 does.
+    // Two rounding steps, one for the product and one for the sum. Fusing
+    // them into a multiply-add would be the faster reading of `d += a * b`,
+    // and it is what the C++ is allowed to do, but the reference the goldens
+    // come from does not: contraction is optional, and the answers here were
+    // measured against a build that keeps both roundings.
     for (var i = 0; i < columns; i++) {
-      sum = float32(sum + vector[i] * _data[offset + i]);
+      sum = float32(sum + float32(vector[i] * _data[offset + i]));
     }
     return sum;
   }
@@ -217,7 +219,6 @@ class ProductQuantizer {
       final centroid = centroidOffset(m, codes[base + m]);
       final width = m == subquantizers - 1 ? lastSubDim : subDim;
       final offset = m * subDim;
-      // Single rounding, as in the fused multiply-add C++ emits here.
       for (var i = 0; i < width; i++) {
         target[offset + i] += scale * centroids[centroid + i];
       }
