@@ -84,6 +84,10 @@ Uint8List buildSyntheticModel({
       .bytes;
 }
 
+/// The UTF-8 bytes of [value], for hashing words the way the dictionary
+/// does.
+Uint8List utf8Bytes(String value) => Uint8List.fromList(utf8.encode(value));
+
 /// Loss codes as the model file stores them.
 const lossHierarchicalSoftmax = 1;
 const lossNegativeSampling = 2;

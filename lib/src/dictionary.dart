@@ -213,11 +213,14 @@ class Dictionary {
   List<int> lineToIndices(String text, {bool joinLines = true}) {
     final bytes = _encodeLine(text, joinLines);
     final indices = <int>[];
+    // Only a model trained with wordNgrams > 1 has any, and hashing every
+    // token is not worth doing for the models that do not.
+    final wordHashes = _args.wordNgrams > 1 ? <int>[] : null;
     var i = 0;
     while (i < bytes.length) {
       final byte = bytes[i];
       if (byte == 0x0a) {
-        _addToken(indices, _eosBytes, 0, _eosBytes.length);
+        _addToken(indices, _eosBytes, 0, _eosBytes.length, wordHashes);
         break;
       }
 
@@ -231,14 +234,47 @@ class Dictionary {
         i++;
       }
 
-      _addToken(indices, bytes, start, i);
+      _addToken(indices, bytes, start, i, wordHashes);
       if (_equals(bytes, start, i, _eosBytes)) {
         break;
       }
     }
-    // Word n-grams: with wordNgrams == 1 (as in lid.176) there are none.
+
+    if (wordHashes != null) {
+      _addWordNgrams(indices, wordHashes);
+    }
+
     return indices;
   }
+
+  /// `Dictionary::addWordNgrams`: every run of up to [ModelArgs.wordNgrams]
+  /// neighbouring words is folded into one hash and lands in the same table
+  /// the character n-grams use.
+  ///
+  /// This is what lets a model tell `a b` from `b a`, which single words
+  /// cannot. fastText's own text-classification tutorial recommends training
+  /// with `-wordNgrams 2`, so a model that needs this is the ordinary case
+  /// rather than an exotic one.
+  void _addWordNgrams(List<int> out, List<int> hashes) {
+    // A model trained without a hash table has nowhere to put them, exactly
+    // as with the character n-grams above.
+    if (_args.bucket <= 0) {
+      return;
+    }
+
+    final reach = _args.wordNgrams;
+    final chained = _Uint64();
+    for (var i = 0; i < hashes.length; i++) {
+      chained.setSignExtended(hashes[i]);
+      for (var j = i + 1; j < hashes.length && j < i + reach; j++) {
+        chained.multiplyAdd(_wordNgramMultiplier, hashes[j]);
+        _pushHash(out, chained.modulo(_args.bucket));
+      }
+    }
+  }
+
+  /// The constant fastText chains word hashes with.
+  static const _wordNgramMultiplier = 116049371;
 
   static final _eosBytes = Uint8List.fromList(utf8.encode(endOfSentence));
 
@@ -281,7 +317,19 @@ class Dictionary {
     return bytes;
   }
 
-  void _addToken(List<int> indices, Uint8List data, int start, int end) {
+  /// Adds one token's rows to [indices], and its hash to [wordHashes] when
+  /// the model chains words into n-grams.
+  ///
+  /// Only tokens that count as words are hashed: a label in the text being
+  /// predicted takes no part in either, whether the dictionary knows it or
+  /// not.
+  void _addToken(
+    List<int> indices,
+    Uint8List data,
+    int start,
+    int end,
+    List<int>? wordHashes,
+  ) {
     final wordId = _index[String.fromCharCodes(data, start, end)];
     if (wordId == null) {
       // Unknown word: labels appearing in the text being predicted are
@@ -290,8 +338,13 @@ class Dictionary {
         return;
       }
 
-      final wrapped = _wrap(data, start, end);
-      _computeSubwords(wrapped, 0, end - start + 2, indices);
+      wordHashes?.add(hash(data, start, end));
+      // The end-of-sentence token is the one word fastText never takes the
+      // subwords of, even when the dictionary has lost it.
+      if (!_equals(data, start, end, _eosBytes)) {
+        final wrapped = _wrap(data, start, end);
+        _computeSubwords(wrapped, 0, end - start + 2, indices);
+      }
 
       return;
     }
@@ -300,6 +353,7 @@ class Dictionary {
       return;
     }
 
+    wordHashes?.add(hash(data, start, end));
     if (_args.maxCharNgram <= 0) {
       indices.add(wordId);
     } else {
@@ -396,5 +450,61 @@ class Dictionary {
       row = mapped;
     }
     out.add(wordCount + row);
+  }
+}
+
+/// A 64-bit unsigned value held as two 32-bit halves.
+///
+/// `addWordNgrams` chains its hashes in `uint64_t`: the arithmetic wraps at
+/// 2^64, and each 32-bit hash is widened through a signed `int32_t`, so one
+/// with the high bit set arrives with its whole top half set. Both details
+/// change the answer.
+///
+/// On the web an `int` is a double and holds neither, so every step here
+/// works on 16-bit pieces that stay inside the 53 bits a mantissa represents
+/// exactly. Shifts and masks are avoided above 32 bits for the same reason:
+/// dart2js truncates their operands to 32.
+class _Uint64 {
+  static const _twoTo16 = 0x10000;
+  static const _twoTo32 = 0x100000000;
+  static const _signBit = 0x80000000;
+  static const _allOnes = 0xFFFFFFFF;
+
+  var _high = 0;
+  var _low = 0;
+
+  /// Loads a 32-bit hash the way C++ widens it, through `int32_t`.
+  void setSignExtended(int hash) {
+    _low = hash;
+    _high = hash >= _signBit ? _allOnes : 0;
+  }
+
+  /// `value = value * multiplier + addend`, wrapping at 2^64, with [addend]
+  /// widened the same way as in [setSignExtended].
+  void multiplyAdd(int multiplier, int addend) {
+    final lowPiece = _low % _twoTo16 * multiplier;
+    final highPiece = _low ~/ _twoTo16 * multiplier;
+    final low = highPiece % _twoTo16 * _twoTo16 + lowPiece;
+    final carried = highPiece ~/ _twoTo16 + low ~/ _twoTo32;
+    final high =
+        _high ~/ _twoTo16 * multiplier % _twoTo16 * _twoTo16 +
+        _high % _twoTo16 * multiplier +
+        carried;
+
+    final sum = low % _twoTo32 + addend;
+    _low = sum % _twoTo32;
+    _high =
+        (high + sum ~/ _twoTo32 + (addend >= _signBit ? _allOnes : 0)) %
+        _twoTo32;
+  }
+
+  /// The value modulo [divisor], folded in from the top so that nothing
+  /// intermediate needs more than 47 bits.
+  int modulo(int divisor) {
+    var rest = _high ~/ _twoTo16 % divisor;
+    rest = (rest * _twoTo16 + _high % _twoTo16) % divisor;
+    rest = (rest * _twoTo16 + _low ~/ _twoTo16) % divisor;
+
+    return (rest * _twoTo16 + _low % _twoTo16) % divisor;
   }
 }
