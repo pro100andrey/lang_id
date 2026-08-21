@@ -17,8 +17,14 @@ Future<void> main(List<String> args) async {
   final model = args.contains('--full')
       ? PretrainedModel.full
       : PretrainedModel.compact;
-  final directory = _optionValue(args, '--out') ?? 'models';
   final force = args.contains('--force');
+  final directory = _optionValue(args, '--out', fallback: 'models');
+  if (directory == null) {
+    stderr.writeln('--out needs a directory to put the model in');
+    exitCode = 2;
+
+    return;
+  }
 
   final downloader = ModelDownloader();
   final target = downloader.fileIn(directory, model);
@@ -67,11 +73,26 @@ void _report(DownloadProgress progress) {
   );
 }
 
-String? _optionValue(List<String> args, String name) {
+/// The value written after [name], [fallback] when the option is absent, or
+/// null when it is there without one.
+///
+/// The last case used to be read as whatever came next: `--out --force`
+/// fetched the model into a directory literally called `--force`, and still
+/// forced it.
+String? _optionValue(
+  List<String> args,
+  String name, {
+  required String fallback,
+}) {
   final index = args.indexOf(name);
-  if (index == -1 || index + 1 >= args.length) {
+  if (index == -1) {
+    return fallback;
+  }
+
+  if (index + 1 >= args.length || args[index + 1].startsWith('-')) {
     return null;
   }
+
   return args[index + 1];
 }
 

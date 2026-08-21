@@ -105,7 +105,8 @@ final identifier = LanguageIdentifier.fromBytes(
 final best = identifier.identify('Мова програмування Dart');
 print('${best?.label} ${best?.probability}');   // uk 0.9649…
 
-// Several candidates, cut off by probability.
+// Several candidates, cut off by probability. `k: -1` asks for all of them.
+const text = 'Мова програмування Dart створена компанією Google';
 for (final p in identifier.predict(text, k: 5, threshold: 0.01)) {
   print('$p');
 }
@@ -184,7 +185,10 @@ flutter:
 
 ```dart
 final data = await rootBundle.load('assets/lid.176.ftz');
-final identifier = LanguageIdentifier.fromBytes(data.buffer.asUint8List());
+// The offset and the length matter: a ByteData is a window onto a buffer
+// that may hold other assets too.
+final identifier = LanguageIdentifier.fromBytes(
+    data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
 ```
 
 Note that bundling means you are **distributing** the weights, so the

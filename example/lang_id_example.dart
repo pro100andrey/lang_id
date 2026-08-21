@@ -30,11 +30,29 @@ const _demoTexts = [
 ];
 
 Future<void> main(List<String> args) async {
-  final identifier = await loadOrDownloadModel(
-    PretrainedModel.compact,
-    directory: 'models',
-    onProgress: (progress) => stderr.write('\r$progress'),
-  );
+  final LanguageIdentifier identifier;
+  try {
+    identifier = await loadOrDownloadModel(
+      PretrainedModel.compact,
+      directory: 'models',
+      onProgress: (progress) => stderr.write('\r$progress'),
+    );
+  } on ModelDownloadException catch (error) {
+    // The first run needs the network. Saying so is more use than a stack
+    // trace and an exit code of 255.
+    stderr.writeln('\nCould not fetch the model: $error');
+    exitCode = 1;
+
+    return;
+  } on FormatException catch (error) {
+    stderr
+      ..writeln('\nmodels/lid.176.ftz is not readable: ${error.message}')
+      ..writeln('Delete it and run again to fetch a fresh copy.');
+    exitCode = 1;
+
+    return;
+  }
+
   stderr.writeln('\n${identifier.info}\n');
 
   if (args.isEmpty) {
@@ -51,7 +69,13 @@ Future<void> main(List<String> args) async {
 }
 
 Future<void> _readStdin(LanguageIdentifier identifier) async {
-  final lines = stdin.transform(utf8.decoder).transform(const LineSplitter());
+  // Malformed bytes become replacement characters rather than an error.
+  // Text of an unknown encoding is exactly what a language identifier is
+  // reached for, and the strict decoder would abandon the whole stream over
+  // one Latin-1 byte, reporting nothing for the lines that were fine.
+  final lines = stdin
+      .transform(const Utf8Decoder(allowMalformed: true))
+      .transform(const LineSplitter());
   await for (final line in lines) {
     if (line.trim().isNotEmpty) {
       _report(identifier, line);
