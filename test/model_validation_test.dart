@@ -21,7 +21,7 @@ void main() {
   );
 
   void expectRejected(Uint8List corrupt, String fragment) => expect(
-    () => LanguageIdentifier.fromBytes(corrupt),
+    () => FastTextClassifier.fromBytes(corrupt),
     throwsFormat(fragment),
   );
 
@@ -95,7 +95,7 @@ void main() {
 
     test('an empty table on its own is ordinary', () {
       expect(
-        LanguageIdentifier.fromBytes(model).info.args.bucket,
+        FastTextClassifier.fromBytes(model).info.args.bucket,
         0,
         reason: 'what fastText writes for a model with no n-grams at all',
       );
@@ -122,7 +122,7 @@ void main() {
 
     test('a foreign file is rejected', () {
       expect(
-        () => LanguageIdentifier.fromBytes(Uint8List(64)),
+        () => FastTextClassifier.fromBytes(Uint8List(64)),
         throwsFormat('wrong file signature'),
       );
     });
@@ -135,12 +135,12 @@ void main() {
     // stops firing. fastText raises on it and so does this.
     for (final poison in [double.nan, double.infinity]) {
       test('$poison in a weight is refused', () {
-        final identifier = LanguageIdentifier.fromBytes(
+        final classifier = FastTextClassifier.fromBytes(
           buildSyntheticModel(poisonedWeight: poison),
         );
 
         expect(
-          () => identifier.predict('alpha'),
+          () => classifier.predict('alpha'),
           throwsFormat('weights contain NaN or an infinity'),
         );
       });
@@ -149,19 +149,19 @@ void main() {
     test('the order is never quietly wrong instead', () {
       // The failure this replaces: hierarchical softmax used to answer with
       // the likeliest label last.
-      final identifier = LanguageIdentifier.fromBytes(
+      final classifier = FastTextClassifier.fromBytes(
         buildSyntheticModel(
           loss: lossHierarchicalSoftmax,
           poisonedWeight: 0 / 0,
         ),
       );
 
-      expect(() => identifier.predict('alpha', k: 4), throwsFormatException);
+      expect(() => classifier.predict('alpha', k: 4), throwsFormatException);
     });
   });
 
   test('the model still loads and predicts when nothing is corrupt', () {
-    final identifier = LanguageIdentifier.fromBytes(model);
-    expect(identifier.identify('alpha')!.label, 'x');
+    final classifier = FastTextClassifier.fromBytes(model);
+    expect(classifier.classify('alpha')!.label, 'x');
   });
 }

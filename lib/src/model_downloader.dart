@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'language_identifier.dart';
+import 'fasttext_classifier.dart';
 import 'model_format.dart';
 
 /// A pretrained language identification model published by Facebook.
@@ -96,7 +96,7 @@ class ModelDownloadException implements Exception {
 ///     directory: 'assets/models',
 ///     onProgress: (p) => print(p),
 ///   );
-///   final identifier = LanguageIdentifier.fromBytes(await file.readAsBytes());
+///   final classifier = FastTextClassifier.fromBytes(await file.readAsBytes());
 /// } finally {
 ///   await downloader.close();
 /// }
@@ -392,7 +392,7 @@ class ModelDownloader {
     }
 
     try {
-      LanguageIdentifier.fromBytes(await file.readAsBytes());
+      FastTextClassifier.fromBytes(await file.readAsBytes());
     } on FormatException catch (error) {
       throw ModelDownloadException(
         '${model.fileName} did not arrive whole: ${error.message}',

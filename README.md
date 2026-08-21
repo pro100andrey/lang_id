@@ -1,9 +1,10 @@
 # lang_id
 
-Language identification in pure Dart. The package reads
-[fastText](https://fasttext.cc) models itself — both plain `.bin` and
-quantized `.ftz` — and computes the prediction itself. No FFI, no native
-libraries, no C++ build step: it runs on the VM, in AOT builds and on the web.
+Supervised [fastText](https://fasttext.cc) classifiers in pure Dart,
+language identification among them. The package reads the models itself —
+both plain `.bin` and quantized `.ftz` — and computes the prediction itself.
+No FFI, no native libraries, no C++ build step: it runs on the VM, in AOT
+builds and on the web.
 
 ```sh
 dart pub add lang_id
@@ -13,14 +14,14 @@ dart pub add lang_id
 import 'package:lang_id/lang_id_io.dart';
 
 // Downloads the model on the first run, reads it from disk afterwards.
-final identifier = await loadOrDownloadModel(
+final classifier = await loadOrDownloadModel(
   PretrainedModel.compact,
   directory: 'models',
 );
 
-print(identifier.identify('Привіт, як справи? Сьогодні чудова погода.'));
+print(classifier.classify('Привіт, як справи? Сьогодні чудова погода.'));
 // uk 96.7%
-print(identifier.predict('Bonjour', k: 3));
+print(classifier.predict('Bonjour', k: 3));
 // [fr 90.2%, en 5.5%, de 0.7%]
 ```
 
@@ -98,24 +99,24 @@ import 'package:lang_id/lang_id.dart';
 // The core of the package does not depend on dart:io, so the bytes can come
 // from anywhere: Flutter assets, the network, memory. Use lang_id_io.dart for
 // loadModel / loadOrDownloadModel when you do have a filesystem.
-final identifier = LanguageIdentifier.fromBytes(
+final classifier = FastTextClassifier.fromBytes(
     File('models/lid.176.ftz').readAsBytesSync());
 
 // The most likely language, or null when there is nothing to predict from.
-final best = identifier.identify('Мова програмування Dart');
+final best = classifier.classify('Мова програмування Dart');
 print('${best?.label} ${best?.probability}');   // uk 0.9649…
 
 // Several candidates, cut off by probability. `k: -1` asks for all of them.
 const text = 'Мова програмування Dart створена компанією Google';
-for (final p in identifier.predict(text, k: 5, threshold: 0.01)) {
+for (final p in classifier.predict(text, k: 5, threshold: 0.01)) {
   print('$p');
 }
 
-print(identifier.labels.length);      // 176
-print(identifier.info);               // dim, loss, dictionary size
+print(classifier.labels.length);      // 176
+print(classifier.info);               // dim, loss, dictionary size
 
 // The embedding behind the prediction, if you want it on its own.
-final vector = identifier.sentenceVector('Мова програмування Dart');
+final vector = classifier.sentenceVector('Мова програмування Dart');
 print(vector.length);                 // 16
 ```
 
@@ -153,10 +154,47 @@ arrive.
   floor. The numbers are reproduced as the original computes them rather than
   tidied up, because tidying them would break the parity below.
 * **Loading the 125 MB model blocks** for tens of milliseconds and allocates
-  125 MB. Handing the loaded identifier to another isolate copies its data,
+  125 MB. Handing the loaded classifier to another isolate copies its data,
   which defeats the point at that size — load and predict inside one
   long-lived isolate instead. The compact model loads in about 20 ms, so it
   rarely needs any of this.
+
+## A classifier of your own
+
+`lid.176` is one supervised fastText model among many, and nothing here is
+specific to it. Train your own and read it the same way — the labels that
+come back are the words you trained on:
+
+```text
+__label__good     Retry with backoff; the socket closes on the third failure.
+__label__garbage  yeah i guess we could maybe try doing it that way
+```
+
+```sh
+fasttext supervised -input train.txt -output quality \
+    -minn 2 -maxn 5 -wordNgrams 2 -epoch 25 -lr 0.5
+fasttext quantize -input train.txt -output quality   # quality.ftz, ~1 MB
+```
+
+```dart
+final quality = FastTextClassifier.fromBytes(
+    File('models/quality.ftz').readAsBytesSync());
+
+print(quality.labels);   // [good, garbage]
+
+bool worthKeeping(String text) {
+  final best = quality.classify(text);
+  return best != null && best.label == 'good' && best.probability > 0.7;
+}
+```
+
+Two things worth knowing about the labels:
+
+* `labels` is ordered by how often each one occurred in training, not by the
+  order you wrote them, so compare the string rather than the position.
+* The `__label__` prefix is stripped for you, but it is fastText's default
+  rather than something the file records: a model trained with
+  `-label "__cls__"` keeps that prefix in `labels`.
 
 ## In a Flutter app
 
@@ -166,7 +204,7 @@ Put the model in a directory the app owns and let the package fetch it:
 import 'package:path_provider/path_provider.dart';
 
 final directory = await getApplicationSupportDirectory();
-final identifier = await loadOrDownloadModel(
+final classifier = await loadOrDownloadModel(
   PretrainedModel.compact,
   directory: directory.path,
   onProgress: (p) => setState(() => _progress = p.fraction),
@@ -187,7 +225,7 @@ flutter:
 final data = await rootBundle.load('assets/lid.176.ftz');
 // The offset and the length matter: a ByteData is a window onto a buffer
 // that may hold other assets too.
-final identifier = LanguageIdentifier.fromBytes(
+final classifier = FastTextClassifier.fromBytes(
     data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
 ```
 
@@ -276,7 +314,7 @@ Loading weights from disk lives in a separate library,
 | `lib/src/output_layer.dart` | Huffman tree, softmax, sigmoids |
 | `lib/src/float32.dart` | rounding intermediate results to float32 |
 | `lib/src/model_format.dart` | format signature and version constants |
-| `lib/src/language_identifier.dart` | assembling the model and predicting |
+| `lib/src/fasttext_classifier.dart` | assembling the model and predicting |
 | `lib/src/model_downloader.dart` | fetching the weights into a directory |
 
 The binary format was worked out against the sources of
@@ -309,7 +347,7 @@ python3 -m venv .venv && .venv/bin/pip install fasttext-wheel
 ```
 
 Test data deliberately contains text in many languages, Russian among them —
-that is the input a language identifier is supposed to be checked against.
+that is the input a language classifier is supposed to be checked against.
 
 ## Licences
 

@@ -33,7 +33,7 @@ bool get modelsAreRequired =>
 /// 27 of 41 cases by up to 398 ulps, against the 3 cases and 8 ulps that the
 /// libm difference accounts for.
 void expectPredictionsMatchReference(
-  LanguageIdentifier identifier,
+  FastTextClassifier classifier,
   Map<String, dynamic> golden, {
   int allowedInexactCases = 4,
   int allowedUlps = 8,
@@ -49,7 +49,7 @@ void expectPredictionsMatchReference(
     final text = testCase['text'] as String;
     final expected = (testCase['predictions'] as List<dynamic>)
         .cast<Map<String, dynamic>>();
-    final actual = identifier.predict(text, k: k);
+    final actual = classifier.predict(text, k: k);
     final reason = 'text: ${jsonEncode(text)}';
 
     expect(
@@ -90,7 +90,7 @@ void expectPredictionsMatchReference(
 
 /// Compares the sentence vector of every case, bit for bit.
 void expectSentenceVectorsMatchReference(
-  LanguageIdentifier identifier,
+  FastTextClassifier classifier,
   Map<String, dynamic> golden,
 ) {
   for (final entry in golden['cases'] as List<dynamic>) {
@@ -98,7 +98,7 @@ void expectSentenceVectorsMatchReference(
     final text = testCase['text'] as String;
 
     expect(
-      hexOf(identifier.sentenceVector(text)),
+      hexOf(classifier.sentenceVector(text)),
       testCase['sentenceVector'],
       reason: 'text: ${jsonEncode(text)}',
     );

@@ -1,4 +1,4 @@
-import 'language_identifier.dart';
+import 'fasttext_classifier.dart';
 
 /// A label and its probability.
 class Prediction implements Comparable<Prediction> {
@@ -29,7 +29,7 @@ class Prediction implements Comparable<Prediction> {
   /// This is the ascending order [Comparable] asks for, so `sort()` leaves
   /// the likeliest last. It used to be the other way round, which read well
   /// at a call site and lied to everything that takes a [Comparable] at its
-  /// word. You rarely need it: [LanguageIdentifier.predict] already answers
+  /// word. You rarely need it: [FastTextClassifier.predict] already answers
   /// most likely first.
   @override
   int compareTo(Prediction other) {

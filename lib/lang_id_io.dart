@@ -5,7 +5,7 @@ library;
 
 import 'dart:io';
 
-import 'src/language_identifier.dart';
+import 'src/fasttext_classifier.dart';
 import 'src/model_downloader.dart';
 
 export 'lang_id.dart';
@@ -17,12 +17,12 @@ export 'src/model_downloader.dart'
         PretrainedModel;
 
 /// Reads a model from a `.bin` or `.ftz` file.
-Future<LanguageIdentifier> loadModel(String path) async =>
-    LanguageIdentifier.fromBytes(await File(path).readAsBytes());
+Future<FastTextClassifier> loadModel(String path) async =>
+    FastTextClassifier.fromBytes(await File(path).readAsBytes());
 
 /// Synchronous variant of [loadModel], for CLIs and tests.
-LanguageIdentifier loadModelSync(String path) =>
-    LanguageIdentifier.fromBytes(File(path).readAsBytesSync());
+FastTextClassifier loadModelSync(String path) =>
+    FastTextClassifier.fromBytes(File(path).readAsBytesSync());
 
 /// Loads [model] from [directory], downloading it first if it is not there.
 ///
@@ -31,7 +31,7 @@ LanguageIdentifier loadModelSync(String path) =>
 /// that is already on disk.
 ///
 /// ```dart
-/// final identifier = await loadOrDownloadModel(
+/// final classifier = await loadOrDownloadModel(
 ///   PretrainedModel.compact,
 ///   directory: 'models',
 /// );
@@ -43,7 +43,7 @@ LanguageIdentifier loadModelSync(String path) =>
 ///
 /// Pass [downloader] to control the mirror, the [HttpClient] or the
 /// timeouts; otherwise a default one is created and closed here.
-Future<LanguageIdentifier> loadOrDownloadModel(
+Future<FastTextClassifier> loadOrDownloadModel(
   PretrainedModel model, {
   required String directory,
   bool force = false,

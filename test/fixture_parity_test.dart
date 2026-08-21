@@ -32,11 +32,11 @@ void main() {
 
   for (final name in models) {
     group(name, () {
-      late LanguageIdentifier identifier;
+      late FastTextClassifier classifier;
       late Map<String, dynamic> golden;
 
       setUpAll(() {
-        identifier = loadModelSync('test/fixtures/$name.bin');
+        classifier = loadModelSync('test/fixtures/$name.bin');
         golden =
             jsonDecode(File('test/golden/$name.json').readAsStringSync())
                 as Map<String, dynamic>;
@@ -44,14 +44,14 @@ void main() {
 
       test('predictions match the reference', () {
         expectPredictionsMatchReference(
-          identifier,
+          classifier,
           golden,
           allowedInexactCases: 1,
         );
       });
 
       test('sentence vectors match the reference bit for bit', () {
-        expectSentenceVectorsMatchReference(identifier, golden);
+        expectSentenceVectorsMatchReference(classifier, golden);
       });
     });
   }

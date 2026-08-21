@@ -12,7 +12,7 @@ import 'prediction.dart';
 
 /// Facts about a loaded model.
 class ModelInfo {
-  /// Internal: built by [LanguageIdentifier.fromBytes] while reading a file.
+  /// Internal: built by [FastTextClassifier.fromBytes] while reading a file.
   const ModelInfo({
     required this.formatVersion,
     required this.args,
@@ -48,22 +48,25 @@ class ModelInfo {
       'dim: ${args.dim}, loss: ${args.loss.name})';
 }
 
-/// A language identifier backed by a fastText model.
+/// A supervised fastText model: text in, one of its labels out.
 ///
 /// Reads both `.bin` and quantized `.ftz`; the matrix representation is
-/// chosen from a flag in the file and never shows up in the API. Strictly
-/// speaking this reads any supervised fastText model — labels come back as
-/// [Prediction.label], and for `lid.176` those labels are language codes.
+/// chosen from a flag in the file and never shows up in the API. The labels
+/// are whatever the model was trained on, so `lid.176` gives language codes
+/// and a model of your own gives yours.
 ///
 /// ```dart
-/// final id = LanguageIdentifier.fromBytes(bytes);
-/// print(id.identify('Привіт, як справи?')); // uk 84.4%
+/// final languages = FastTextClassifier.fromBytes(bytes);
+/// print(languages.classify('Привіт, як справи?')); // uk 84.4%
+///
+/// final quality = FastTextClassifier.fromBytes(otherBytes);
+/// print(quality.classify(text)?.label); // good
 /// ```
 ///
 /// An instance reuses an internal buffer and is therefore not thread-safe;
 /// keep one per isolate.
-class LanguageIdentifier {
-  LanguageIdentifier._(
+class FastTextClassifier {
+  FastTextClassifier._(
     this._dictionary,
     this._input,
     this._output,
@@ -77,7 +80,7 @@ class LanguageIdentifier {
   /// over the source buffer rather than copied, which is most of why it is
   /// small. A dense one does not — its matrix is copied out and the buffer
   /// can be collected as soon as you let go of it.
-  factory LanguageIdentifier.fromBytes(Uint8List bytes) {
+  factory FastTextClassifier.fromBytes(Uint8List bytes) {
     final reader = BinaryReader(bytes);
     final magic = reader.int32();
     final formatVersion = reader.int32();
@@ -106,7 +109,7 @@ class LanguageIdentifier {
     final output = Matrix.read(reader, quantized: quantized && quantizedOutput);
     _validateShapes(args, dictionary, input, output);
 
-    return LanguageIdentifier._(
+    return FastTextClassifier._(
       dictionary,
       input,
       OutputLayer.create(args, output, dictionary.labelCounts),
@@ -195,9 +198,9 @@ class LanguageIdentifier {
   /// first entries are the best-represented ones.
   List<String> get labels => _labels;
 
-  /// The most likely language of the text, or `null` when there is nothing
-  /// to predict from: the text holds nothing but whitespace, or every one of
-  /// its n-grams was dropped when the model was pruned.
+  /// The most likely label for the text, or `null` when there is nothing
+  /// to predict from: the text holds nothing but whitespace, or every one
+  /// of its n-grams was dropped when the model was pruned.
   ///
   /// The empty case needs saying out loud, because fastText does not treat
   /// it as one. It appends a newline before parsing, which always yields the
@@ -206,7 +209,7 @@ class LanguageIdentifier {
   /// is what [predict] returns, because it reproduces the original. This
   /// answers `null` instead, so that the obvious check on a form field means
   /// what it looks like.
-  Prediction? identify(
+  Prediction? classify(
     String text, {
     double threshold = 0.0,
     bool joinLines = true,
@@ -220,20 +223,20 @@ class LanguageIdentifier {
     return best.isEmpty ? null : best.first;
   }
 
-  /// The [k] most likely languages, most likely first.
+  /// The [k] most likely labels, most likely first.
   ///
   /// [threshold] drops candidates below the given probability. [joinLines]
   /// folds multi-line text into a single line; with `false` the parse stops
   /// at the first newline, the way the fastText CLI behaves.
   ///
-  /// `k: -1` asks for every language, which is what the number means to
+  /// `k: -1` asks for every label, which is what the number means to
   /// fastText itself. Expect far fewer than [labels] back even then, for the
   /// reason below.
   ///
   /// Expect fewer than [k] entries: fastText prunes candidates below its own
-  /// floor of `1e-5` while searching, so asking for all 176 languages still
-  /// returns a handful. See [Prediction.probability] for why the numbers can
-  /// nudge just past 1.
+  /// floor of `1e-5` while searching, so asking `lid.176` for all 176 of its
+  /// languages still returns a handful. See [Prediction.probability] for
+  /// why the numbers can nudge just past 1.
   ///
   /// Throws [FormatException] when the weights turn out not to be finite
   /// numbers. That is a broken model file rather than anything about the
@@ -278,7 +281,7 @@ class LanguageIdentifier {
   /// used to say: fastText appends a newline before parsing, which yields
   /// the end-of-sentence token, which is in every dictionary — so an empty
   /// string comes back as that token's own vector rather than as zeros. Use
-  /// [Dictionary.isBlank], which is what [identify] does, to tell whether
+  /// [Dictionary.isBlank], which is what [classify] does, to tell whether
   /// there was anything to look at.
   Float32List sentenceVector(String text, {bool joinLines = true}) {
     final vector = Float32List(info.args.dim);

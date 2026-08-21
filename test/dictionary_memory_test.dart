@@ -8,7 +8,7 @@ import 'support/synthetic_model.dart';
 /// What a loaded model is allowed to hold on to.
 ///
 /// Both of these are about a cost that outlives the call that caused it,
-/// which is the kind a long-lived identifier turns into a leak: the README
+/// which is the kind a long-lived classifier turns into a leak: the README
 /// asks for one per isolate, so anything it keeps, it keeps for good.
 void main() {
   Dictionary readDictionary() {
@@ -45,12 +45,12 @@ void main() {
     // keeps a 125 MB .bin from costing 250. Overwriting every byte of the
     // source cannot change an answer.
     final bytes = buildSyntheticModel();
-    final identifier = LanguageIdentifier.fromBytes(bytes);
-    final before = identifier.predict('alpha', k: 2);
+    final classifier = FastTextClassifier.fromBytes(bytes);
+    final before = classifier.predict('alpha', k: 2);
 
     bytes.fillRange(0, bytes.length, 0);
 
-    expect(identifier.predict('alpha', k: 2), before);
-    expect(identifier.labels, ['x', 'y']);
+    expect(classifier.predict('alpha', k: 2), before);
+    expect(classifier.labels, ['x', 'y']);
   });
 }

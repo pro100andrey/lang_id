@@ -37,21 +37,21 @@ void main() {
         return;
       }
 
-      late LanguageIdentifier identifier;
+      late FastTextClassifier classifier;
       late Map<String, dynamic> golden;
 
       setUpAll(() {
-        identifier = loadModelSync(modelFile.path);
+        classifier = loadModelSync(modelFile.path);
         golden =
             jsonDecode(goldenFile.readAsStringSync()) as Map<String, dynamic>;
       });
 
       test('predictions match the reference', () {
-        expectPredictionsMatchReference(identifier, golden);
+        expectPredictionsMatchReference(classifier, golden);
       });
 
       test('sentence vectors match the reference bit for bit', () {
-        expectSentenceVectorsMatchReference(identifier, golden);
+        expectSentenceVectorsMatchReference(classifier, golden);
       });
     });
   }

@@ -1,7 +1,7 @@
 name: lang_id
 description: >-
-  Language identification in pure Dart. Reads Facebook fastText models
-  (.bin and quantized .ftz).
+  Supervised fastText classifiers in pure Dart: reads .bin and quantized .ftz
+  models and runs inference. Language identification with lid.176 included.
 version: 0.1.0
 
 repository: https://github.com/pro100andrey/lang_id

@@ -28,29 +28,29 @@ void main() {
   });
 
   group('synthetic model', () {
-    late LanguageIdentifier identifier;
+    late FastTextClassifier classifier;
 
     setUpAll(
-      () => identifier = LanguageIdentifier.fromBytes(buildSyntheticModel()),
+      () => classifier = FastTextClassifier.fromBytes(buildSyntheticModel()),
     );
 
     test('parses the header', () {
-      expect(identifier.info.formatVersion, 12);
-      expect(identifier.info.quantized, isFalse);
-      expect(identifier.info.args.dim, 2);
-      expect(identifier.info.args.loss, FastTextLoss.softmax);
-      expect(identifier.info.wordCount, 3);
-      expect(identifier.info.labelCount, 2);
-      expect(identifier.labels, ['x', 'y']);
+      expect(classifier.info.formatVersion, 12);
+      expect(classifier.info.quantized, isFalse);
+      expect(classifier.info.args.dim, 2);
+      expect(classifier.info.args.loss, FastTextLoss.softmax);
+      expect(classifier.info.wordCount, 3);
+      expect(classifier.info.labelCount, 2);
+      expect(classifier.labels, ['x', 'y']);
     });
 
     test('tells labels apart by word', () {
-      expect(identifier.identify('alpha')!.label, 'x');
-      expect(identifier.identify('beta')!.label, 'y');
+      expect(classifier.classify('alpha')!.label, 'x');
+      expect(classifier.classify('beta')!.label, 'y');
     });
 
     test('probabilities are normalized', () {
-      final result = identifier.predict('alpha', k: 2);
+      final result = classifier.predict('alpha', k: 2);
       expect(result, hasLength(2));
       final sum = result.fold<double>(0, (a, p) => a + p.probability);
       // std_log adds 1e-5 under the logarithm, hence the tolerance.
@@ -59,8 +59,8 @@ void main() {
 
     group('blank text', () {
       for (final text in ['', ' ', '   \t\n', '\r\n']) {
-        test('identify(${text.length} blanks) is null', () {
-          expect(identifier.identify(text), isNull);
+        test('classify(${text.length} blanks) is null', () {
+          expect(classifier.classify(text), isNull);
         });
       }
 
@@ -68,28 +68,28 @@ void main() {
         // fastText appends a newline before parsing, which yields the
         // end-of-sentence token, which is always in the dictionary. So there
         // is something to score even for an empty line, and predict says so;
-        // only identify calls that nothing.
-        expect(identifier.predict(''), isNotEmpty);
+        // only classify calls that nothing.
+        expect(classifier.predict(''), isNotEmpty);
       });
 
       test('text that only looks blank is not', () {
-        expect(identifier.identify('\u00a0'), isNotNull);
+        expect(classifier.classify('\u00a0'), isNotNull);
       });
     });
 
     test('k of -1 asks for every label, as it does in fastText', () {
-      expect(identifier.predict('alpha', k: -1), hasLength(2));
-      expect(identifier.predict('alpha'), hasLength(1));
+      expect(classifier.predict('alpha', k: -1), hasLength(2));
+      expect(classifier.predict('alpha'), hasLength(1));
     });
 
     test('any other k below one is still an error', () {
-      expect(() => identifier.predict('alpha', k: 0), throwsRangeError);
-      expect(() => identifier.predict('alpha', k: -2), throwsRangeError);
+      expect(() => classifier.predict('alpha', k: 0), throwsRangeError);
+      expect(() => classifier.predict('alpha', k: -2), throwsRangeError);
     });
 
     test('unknown words contribute nothing without character n-grams', () {
       // Only the </s> token is left, so both labels are equally likely.
-      final result = identifier.predict('unknownword', k: 2);
+      final result = classifier.predict('unknownword', k: 2);
       expect(result.first.probability, closeTo(0.5, 1e-4));
     });
   });

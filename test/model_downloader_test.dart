@@ -357,14 +357,14 @@ void main() {
   });
 
   test('loadOrDownloadModel fetches and then reads from disk', () async {
-    final identifier = await loadOrDownloadModel(
+    final classifier = await loadOrDownloadModel(
       PretrainedModel.compact,
       directory: workDir.path,
       downloader: downloader,
     );
 
-    expect(identifier.labels, ['x', 'y']);
-    expect(identifier.identify('alpha')!.label, 'x');
+    expect(classifier.labels, ['x', 'y']);
+    expect(classifier.classify('alpha')!.label, 'x');
     expect(requestCount, 1);
 
     await loadOrDownloadModel(
