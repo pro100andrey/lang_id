@@ -93,6 +93,38 @@ void main() {
     });
   });
 
+  group('weights that are not numbers', () {
+    // A NaN passes every comparison as false, so nothing downstream notices
+    // it: the sigmoid's range checks let it reach a conversion that throws
+    // an unrelated error, and the pruning that keeps predictions ordered
+    // stops firing. fastText raises on it and so does this.
+    for (final poison in [double.nan, double.infinity]) {
+      test('$poison in a weight is refused', () {
+        final identifier = LanguageIdentifier.fromBytes(
+          buildSyntheticModel(poisonedWeight: poison),
+        );
+
+        expect(
+          () => identifier.predict('alpha'),
+          throwsFormat('weights contain NaN or an infinity'),
+        );
+      });
+    }
+
+    test('the order is never quietly wrong instead', () {
+      // The failure this replaces: hierarchical softmax used to answer with
+      // the likeliest label last.
+      final identifier = LanguageIdentifier.fromBytes(
+        buildSyntheticModel(
+          loss: lossHierarchicalSoftmax,
+          poisonedWeight: 0 / 0,
+        ),
+      );
+
+      expect(() => identifier.predict('alpha', k: 4), throwsFormatException);
+    });
+  });
+
   test('the model still loads and predicts when nothing is corrupt', () {
     final identifier = LanguageIdentifier.fromBytes(model);
     expect(identifier.identify('alpha')!.label, 'x');

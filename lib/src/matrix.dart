@@ -20,7 +20,36 @@ abstract class Matrix {
 
   void addRowTo(Float32List target, int row);
 
+  /// The dot product of [vector] with a row.
+  ///
+  /// Throws [FormatException] when the result is not a finite number, which
+  /// means the weights are not either.
   double dotRow(Float32List vector, int row);
+}
+
+/// Refuses a score that is not a finite number.
+///
+/// fastText guards its own dot product against NaN, and the guard was worth
+/// keeping. A NaN passes every comparison as false: the range checks of the
+/// table-driven sigmoid let it through to a conversion that throws something
+/// no caller could anticipate, and the two guards that prune the walk down
+/// the Huffman tree stop firing, so the answer comes back in an order that
+/// contradicts the "most likely first" the API promises.
+///
+/// Infinity is refused as well, which fastText does not do. It arrives one
+/// step earlier — an infinite weight makes an infinite score, and the
+/// softmax turns that into NaN when it subtracts the maximum — and there is
+/// nothing a caller could do with the answer either way. Trained weights
+/// never come near the size this needs.
+double _requireNumber(double score) {
+  if (!score.isFinite) {
+    throw FormatException(
+      'the model scored a text as $score: its weights contain NaN or an '
+      'infinity',
+    );
+  }
+
+  return score;
 }
 
 /// A dense float32 matrix, as found in unquantized `.bin` models.
@@ -64,7 +93,8 @@ class DenseMatrix implements Matrix {
     for (var i = 0; i < columns; i++) {
       sum = float32(sum + float32(vector[i] * _data[offset + i]));
     }
-    return sum;
+
+    return _requireNumber(sum);
   }
 }
 
@@ -156,7 +186,7 @@ class QuantizedMatrix implements Matrix {
 
   @override
   double dotRow(Float32List vector, int row) =>
-      _quantizer.dotCode(vector, _codes, row, _norm(row));
+      _requireNumber(_quantizer.dotCode(vector, _codes, row, _norm(row)));
 }
 
 /// A product quantization codebook: 256 centroids per sub-space.

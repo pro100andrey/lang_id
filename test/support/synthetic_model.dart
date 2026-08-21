@@ -20,6 +20,7 @@ Uint8List buildSyntheticModel({
   int wordNgrams = 1,
   int bucket = 0,
   bool tiedLabels = false,
+  double? poisonedWeight,
 }) {
   const dim = 2;
   final words = [
@@ -31,6 +32,16 @@ Uint8List buildSyntheticModel({
   ];
   final wordCount = words.length - labelCount;
   final inputRows = wordCount + bucket;
+  // One row per label, each driven by a different component — unless the
+  // test asked for labels that score exactly the same, or for a weight that
+  // is not a number.
+  final outputWeights = <num>[
+    for (var i = 0; i < labelCount; i++)
+      if (tiedLabels) ...[0, 0] else if (i.isEven) ...[10, 0] else ...[0, 10],
+  ];
+  if (poisonedWeight != null && outputWeights.isNotEmpty) {
+    outputWeights[0] = poisonedWeight;
+  }
 
   final out = ByteSink()
     ..int32(793712314) // signature
@@ -74,13 +85,7 @@ Uint8List buildSyntheticModel({
         ..uint8(0) // the output matrix is not quantized
         ..int64(labelCount)
         ..int64(dim)
-        ..float32s([
-          for (var i = 0; i < labelCount; i++)
-            if (tiedLabels) ...const [0, 0] else if (i.isEven) ...const [
-              10,
-              0,
-            ] else ...const [0, 10],
-        ]))
+        ..float32s(outputWeights))
       .bytes;
 }
 

@@ -218,6 +218,10 @@ class LanguageIdentifier {
   /// floor of `1e-5` while searching, so asking for all 176 languages still
   /// returns a handful. See [Prediction.probability] for why the numbers can
   /// nudge just past 1.
+  ///
+  /// Throws [FormatException] when the weights turn out not to be finite
+  /// numbers. That is a broken model file rather than anything about the
+  /// text, but it can only be noticed here, while scoring.
   List<Prediction> predict(
     String text, {
     int k = 1,
