@@ -111,10 +111,7 @@ class LanguageIdentifier {
 
     final quantizedOutput = reader.boolean();
     final output = Matrix.read(reader, quantized: quantized && quantizedOutput);
-
-    if (dictionary.labelCount == 0) {
-      throw const FormatException('the model has no labels');
-    }
+    _validateShapes(args, dictionary, input, output);
 
     return LanguageIdentifier._(
       dictionary,
@@ -130,6 +127,57 @@ class LanguageIdentifier {
         tokenCount: dictionary.tokenCount,
       ),
     );
+  }
+
+  /// Checks that the matrices match the header and the dictionary.
+  ///
+  /// Nothing in the file says these have to agree, and when they do not the
+  /// interesting case is the quiet one: a header claiming more columns than
+  /// the input matrix has leaves the tail of the hidden vector at zero, and
+  /// the model answers with a confident label computed from half a vector.
+  /// The rest surface as a range error from somewhere inside the arithmetic.
+  /// Both are better as a [FormatException] at load time.
+  static void _validateShapes(
+    ModelArgs args,
+    Dictionary dictionary,
+    Matrix input,
+    Matrix output,
+  ) {
+    // The count that every consumer below uses, rather than the header field
+    // it is read from; Dictionary.read has already held the two to each
+    // other.
+    final labelCount = dictionary.size - dictionary.wordCount;
+    if (labelCount == 0) {
+      throw const FormatException('the model has no labels');
+    }
+
+    if (input.columns != args.dim || output.columns != args.dim) {
+      throw FormatException(
+        'the model says its vectors are ${args.dim} wide, but the input '
+        'matrix has ${input.columns} columns and the output matrix '
+        '${output.columns}',
+      );
+    }
+
+    if (input.rows < dictionary.wordCount) {
+      throw FormatException(
+        'the input matrix has ${input.rows} rows, too few for '
+        '${dictionary.wordCount} words',
+      );
+    }
+
+    // Hierarchical softmax scores the internal nodes of the Huffman tree,
+    // one row short of the labels; every other loss scores the labels
+    // themselves.
+    final rowsNeeded = args.loss == FastTextLoss.hierarchicalSoftmax
+        ? labelCount - 1
+        : labelCount;
+    if (output.rows < rowsNeeded) {
+      throw FormatException(
+        'the output matrix has ${output.rows} rows, too few for $labelCount '
+        'labels with ${args.loss.name} loss',
+      );
+    }
   }
 
   final Dictionary _dictionary;

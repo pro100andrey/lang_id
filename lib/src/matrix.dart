@@ -30,6 +30,10 @@ class DenseMatrix implements Matrix {
   factory DenseMatrix.read(BinaryReader reader) {
     final rows = reader.int64();
     final columns = reader.int64();
+    if (rows < 0 || columns < 0) {
+      throw FormatException('a matrix of ${rows}x$columns cannot be read');
+    }
+
     return DenseMatrix._(rows, columns, reader.float32List(rows * columns));
   }
 
@@ -83,8 +87,30 @@ class QuantizedMatrix implements Matrix {
     final rows = reader.int64();
     final columns = reader.int64();
     final codeSize = reader.int32();
+    if (rows < 0 || columns < 0) {
+      throw FormatException('a matrix of ${rows}x$columns cannot be read');
+    }
+
     final codes = reader.byteView(codeSize);
     final quantizer = ProductQuantizer.read(reader);
+    // fastText sizes the code block as one code per sub-space per row. Any
+    // other value means the codes and the codebook describe different
+    // matrices, and every lookup below would run off the end of one of them.
+    if (codeSize != rows * quantizer.subquantizers) {
+      throw FormatException(
+        'the quantized matrix carries $codeSize codes, but $rows rows of '
+        '${quantizer.subquantizers} sub-spaces need '
+        '${rows * quantizer.subquantizers}',
+      );
+    }
+
+    if (quantizer.dim != columns) {
+      throw FormatException(
+        'the codebook describes ${quantizer.dim} columns, but the matrix has '
+        '$columns',
+      );
+    }
+
     Uint8List? normCodes;
     ProductQuantizer? normQuantizer;
     if (hasNorms) {
@@ -146,6 +172,19 @@ class ProductQuantizer {
     final subquantizers = reader.int32();
     final subDim = reader.int32();
     final lastSubDim = reader.int32();
+    // The sub-spaces tile the vector exactly: every one of them is subDim
+    // wide except the last. Holding the file to that is what keeps every
+    // centroid offset inside the codebook.
+    if (subquantizers < 1 ||
+        subDim < 1 ||
+        lastSubDim < 1 ||
+        (subquantizers - 1) * subDim + lastSubDim != dim) {
+      throw FormatException(
+        'the codebook does not tile a vector of $dim: $subquantizers '
+        'sub-spaces of $subDim, the last one $lastSubDim',
+      );
+    }
+
     return ProductQuantizer._(
       dim,
       subquantizers,

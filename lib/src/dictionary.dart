@@ -32,6 +32,7 @@ class Dictionary {
     final labelCount = reader.int32();
     final tokenCount = reader.int64();
     final pruneIndexSize = reader.int64();
+    _validate(reader, size, wordCount, labelCount, pruneIndexSize);
 
     final words = <Uint8List>[];
     final counts = List<int>.filled(size, 0);
@@ -66,6 +67,56 @@ class Dictionary {
       pruneIndex,
     );
   }
+
+  /// Checks the counts before anything is allocated from them.
+  ///
+  /// They are int32 fields of an untrusted file, and they size every list
+  /// here: unchecked, four edited bytes ask for a multi-gigabyte allocation
+  /// long before the read runs off the end of the buffer.
+  ///
+  /// The equality is fastText's own invariant — `size_` is incremented
+  /// together with either `nwords_` or `nlabels_` — and holding the reader to
+  /// it is what keeps [labelCount] and [labelCounts] from ever describing
+  /// different things.
+  static void _validate(
+    BinaryReader reader,
+    int size,
+    int wordCount,
+    int labelCount,
+    int pruneIndexSize,
+  ) {
+    if (size < 0 || wordCount < 0 || labelCount < 0) {
+      throw FormatException(
+        'the dictionary has a negative size: $size entries, '
+        '$wordCount words, $labelCount labels',
+      );
+    }
+
+    if (wordCount + labelCount != size) {
+      throw FormatException(
+        'the dictionary is inconsistent: $wordCount words plus $labelCount '
+        'labels do not add up to $size entries',
+      );
+    }
+
+    // The shortest possible entry is an empty word: one null byte, an int64
+    // count and the one-byte type.
+    if (size * _minimumEntryBytes > reader.remaining) {
+      throw FormatException(
+        'the dictionary claims $size entries, which do not fit in the '
+        '${reader.remaining} bytes left',
+      );
+    }
+
+    if (pruneIndexSize < -1 || pruneIndexSize * 8 > reader.remaining) {
+      throw FormatException(
+        'the prune index size is out of range: '
+        '$pruneIndexSize',
+      );
+    }
+  }
+
+  static const _minimumEntryBytes = 10;
 
   /// The default label prefix. It is not stored in the model file; fastText
   /// uses this same value at training time unless told otherwise.

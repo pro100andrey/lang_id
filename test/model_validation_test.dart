@@ -1,0 +1,100 @@
+import 'dart:typed_data';
+
+import 'package:lang_id/lang_id.dart';
+import 'package:test/test.dart';
+
+import 'support/synthetic_model.dart';
+
+/// A model file is untrusted input. These are the ways a corrupt one used to
+/// get through: an allocation sized from a raw header field, a shape nobody
+/// compared against the header, or a mismatch that produced a confident
+/// answer computed from half a vector.
+void main() {
+  final model = buildSyntheticModel();
+
+  Matcher throwsFormat(String fragment) => throwsA(
+    isA<FormatException>().having(
+      (e) => e.message,
+      'message',
+      contains(fragment),
+    ),
+  );
+
+  void expectRejected(Uint8List corrupt, String fragment) => expect(
+    () => LanguageIdentifier.fromBytes(corrupt),
+    throwsFormat(fragment),
+  );
+
+  group('dictionary counts', () {
+    test('a negative size is rejected', () {
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.size, -1),
+        'negative size',
+      );
+    });
+
+    test('counts that do not add up are rejected', () {
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.wordCount, 2),
+        'do not add up',
+      );
+    });
+
+    test('a size larger than the file is rejected before allocating', () {
+      // Four edited bytes used to ask for a multi-gigabyte allocation, which
+      // took eleven seconds to fail. The check is against what is left in
+      // the buffer, so this returns immediately.
+      const huge = 0x7FFFFFFF;
+      expectRejected(
+        patchInt32(
+          patchInt32(model, syntheticHeaderOffsets.size, huge),
+          syntheticHeaderOffsets.wordCount,
+          huge - 2,
+        ),
+        'do not fit',
+      );
+    });
+
+    test('a prune index larger than the file is rejected', () {
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.pruneIndexSize, 0x7FFFFFF0),
+        'prune index size',
+      );
+    });
+
+    test('a model with no labels is rejected', () {
+      expectRejected(buildSyntheticModel(labelCount: 0), 'no labels');
+    });
+  });
+
+  group('shapes', () {
+    test('a dimension the matrices do not have is rejected', () {
+      // The quiet case: the header claims four columns, the input matrix has
+      // two, and the tail of the hidden vector stays zero while predict
+      // answers as if nothing happened.
+      expectRejected(
+        patchInt32(model, syntheticHeaderOffsets.dim, 4),
+        'vectors are 4 wide',
+      );
+    });
+
+    test('a truncated model is rejected', () {
+      expectRejected(
+        Uint8List.sublistView(model, 0, model.length - 4),
+        'truncated',
+      );
+    });
+
+    test('a foreign file is rejected', () {
+      expect(
+        () => LanguageIdentifier.fromBytes(Uint8List(64)),
+        throwsFormat('wrong file signature'),
+      );
+    });
+  });
+
+  test('the model still loads and predicts when nothing is corrupt', () {
+    final identifier = LanguageIdentifier.fromBytes(model);
+    expect(identifier.identify('alpha')!.label, 'x');
+  });
+}
