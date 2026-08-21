@@ -46,8 +46,31 @@ void main() {
         1,
         2,
         0,
-        wordCount + chainedBucket(hashOf('alpha'), hashOf('beta'), bucket),
-        wordCount + chainedBucket(hashOf('beta'), hashOf('</s>'), bucket),
+        wordCount + chainedBucket([hashOf('alpha'), hashOf('beta')], bucket),
+        wordCount + chainedBucket([hashOf('beta'), hashOf('</s>')], bucket),
+      ]);
+    });
+
+    test('a longer reach carries between the steps correctly', () {
+      // Three words and the end-of-sentence token, chained up to three at a
+      // time: three pairs and two triples, in the order fastText emits them.
+      // The triples are the ones that matter — they are two multiplications
+      // deep, so a carry lost on its way into the second one shows up here
+      // and nowhere else.
+      final alpha = hashOf('alpha');
+      final beta = hashOf('beta');
+      final eos = hashOf('</s>');
+
+      expect(dictionaryOf(wordNgrams: 3).lineToIndices('alpha beta alpha'), [
+        1,
+        2,
+        1,
+        0,
+        wordCount + chainedBucket([alpha, beta], bucket),
+        wordCount + chainedBucket([alpha, beta, alpha], bucket),
+        wordCount + chainedBucket([beta, alpha], bucket),
+        wordCount + chainedBucket([beta, alpha, eos], bucket),
+        wordCount + chainedBucket([alpha, eos], bucket),
       ]);
     });
 
@@ -83,15 +106,21 @@ void main() {
   });
 }
 
-/// The bucket fastText's `addWordNgrams` puts a pair of word hashes in.
+/// The bucket fastText's `addWordNgrams` puts a run of word hashes in.
 ///
-/// `h = h * 116049371 + next` in `uint64_t`, with both hashes widened from
-/// `int32_t`, which sign-extends the ones with the high bit set.
-int chainedBucket(int first, int second, int bucket) {
+/// `h = h * 116049371 + next` in `uint64_t` for every hash after the first,
+/// each one widened from `int32_t`, which sign-extends the ones with the
+/// high bit set.
+///
+/// Taking a whole run rather than a pair is the point: one step of the
+/// chunked arithmetic can be right while the carry it hands to the next one
+/// is not, and only a run longer than two shows that.
+int chainedBucket(List<int> hashes, int bucket) {
   final wrap = BigInt.two.pow(64) - BigInt.one;
-  final chained =
-      (signExtended(first) * BigInt.from(116049371) + signExtended(second)) &
-      wrap;
+  var chained = signExtended(hashes.first);
+  for (final hash in hashes.skip(1)) {
+    chained = (chained * BigInt.from(116049371) + signExtended(hash)) & wrap;
+  }
 
   return (chained % BigInt.from(bucket)).toInt();
 }

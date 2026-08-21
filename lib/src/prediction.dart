@@ -5,7 +5,12 @@ class Prediction implements Comparable<Prediction> {
   /// Pairs a [label] with the [probability] the model gave it.
   const Prediction(this.label, this.probability);
 
-  /// Language code (`ru`, `en`, `zh`) with the `__label__` prefix stripped.
+  /// The label the model was trained on, with the `__label__` prefix
+  /// stripped.
+  ///
+  /// A language code (`ru`, `en`, `zh`) for `lid.176`, and whatever you
+  /// labelled your own corpus with for a model of your own — this reads any
+  /// supervised fastText classifier, not only that one.
   final String label;
 
   /// Probability between 0 and 1.
