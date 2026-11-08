@@ -16,11 +16,11 @@ ignores wordNgrams cannot reproduce these answers.
 """
 import json
 import os
-import struct
-import sys
 import tempfile
 
 import fasttext
+
+import fasttext_reference as reference
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 FIXTURES = os.path.join(ROOT, "test", "fixtures")
@@ -89,15 +89,7 @@ def main() -> int:
 
             cases = []
             for text in TEXTS:
-                predictions = model.f.predict(text + "\n", K, 0.0, "strict")
-                vector = model.f.getSentenceVector if False else None
-                import fasttext_pybind
-                vec = fasttext_pybind.Vector(model.get_dimension())
-                model.f.getSentenceVector(vec, text + "\n")
-                import numpy as np
-                packed = b"".join(
-                    struct.pack("<f", float(x)) for x in np.asarray(vec)
-                )
+                predictions = reference.predict(model, text, K)
                 cases.append({
                     "text": text,
                     "predictions": [
@@ -107,7 +99,7 @@ def main() -> int:
                          "probability": float(probability)}
                         for probability, label in predictions
                     ],
-                    "sentenceVector": packed.hex(),
+                    "sentenceVector": reference.sentence_vector_hex(model, text),
                 })
 
             target = os.path.join(GOLDEN, name + ".json")

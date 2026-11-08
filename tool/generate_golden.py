@@ -6,14 +6,19 @@ test/golden, which the parity test checks against.
 
     python3 -m venv .venv && .venv/bin/pip install fasttext-wheel
     .venv/bin/python tool/generate_golden.py
+
+The committed goldens come from Apple Silicon, where fastText links against
+libc++. Labels whose scores are exactly equal are ordered by the standard
+library's heap, and libstdc++ orders them differently, so goldens generated
+on Linux disagree with these on such ties.
 """
 import json
 import os
-import struct
 import sys
 
 import fasttext
-import fasttext_pybind
+
+import fasttext_reference as reference
 
 # Reference texts: the major writing systems, closely related languages
 # (which the model tells apart worst of all) and degenerate inputs.
@@ -76,17 +81,7 @@ def main() -> int:
         model = fasttext.load_model(path)
         cases = []
         for text in TEXTS:
-            # The Python binding appends \n itself; we go around the wrapper
-            # because it is incompatible with numpy 2.
-            predictions = model.f.predict(text + "\n", K, 0.0, "strict")
-            # The sentence vector as raw little-endian float32, so the
-            # comparison is bit-exact rather than rounded through decimal.
-            vector = fasttext_pybind.Vector(model.get_dimension())
-            model.f.getSentenceVector(vector, text + "\n")
-            import numpy as np
-            packed = b"".join(
-                struct.pack("<f", float(x)) for x in np.asarray(vector)
-            )
+            predictions = reference.predict(model, text, K)
 
             cases.append({
                 "text": text,
@@ -98,7 +93,7 @@ def main() -> int:
                      "probability": float(probability)}
                     for probability, label in predictions
                 ],
-                "sentenceVector": packed.hex(),
+                "sentenceVector": reference.sentence_vector_hex(model, text),
             })
         target = os.path.join(out_dir, name.replace(".", "_") + ".json")
         with open(target, "w", encoding="utf-8") as handle:
