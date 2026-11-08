@@ -1,5 +1,24 @@
 ## Unreleased
 
+### Performance
+
+Measured in an AOT build on the 41 reference texts; answers are unchanged
+bit for bit.
+
+- `predict` is about 22% faster on `lid.176.ftz` (10.1 → 7.8 µs a text) and
+  on `lid.176.bin` (9.5 → 7.4 µs), and `lid.176.ftz` loads in half the time.
+- Words are looked up by their bytes in a table of their own, the way
+  fastText does it, instead of building a string for every token. The
+  dictionary no longer keeps a string per word either.
+- The prune index of a quantized model is two flat integer lists rather than
+  a map; it is read for every character n-gram.
+- The hash of each character n-gram carries on from the one before it
+  instead of starting over, and on the VM it multiplies directly rather than
+  in halves, which only the web needs.
+- A dense matrix whose width is a multiple of four sums its rows four floats
+  at a time on the VM.
+- Cached subwords are packed into `Int32List`s.
+
 ### Fixed
 
 - A write that fails during a download — a read-only directory, a full disk
