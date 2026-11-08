@@ -311,9 +311,7 @@ class FastTextClassifier {
   void _fillHidden(Float32List target, List<int> indices) {
     final dim = info.args.dim;
     target.fillRange(0, dim, 0);
-    for (final index in indices) {
-      _input.addRowTo(target, index);
-    }
+    _input.addRowsTo(target, indices);
     // C++ passes the factor as a float, so round before applying it.
     final scale = float32(1.0 / indices.length);
     for (var i = 0; i < dim; i++) {

@@ -20,12 +20,21 @@ abstract class Matrix {
 
   void addRowTo(Float32List target, int row);
 
+  /// Adds every row named in [rows] to [target], in order — the sum at the
+  /// heart of the hidden layer. One call per text rather than per row, so
+  /// that an implementation can set up once what each row would repeat.
+  void addRowsTo(Float32List target, List<int> rows);
+
   /// The dot product of [vector] with a row.
   ///
   /// Throws [FormatException] when the result is not a finite number, which
   /// means the weights are not either.
   double dotRow(Float32List vector, int row);
 }
+
+/// `true` on the web, where `int` is a double and [Float32x4] is emulated
+/// in software, slower than the plain loop it would replace.
+const bool _numbersAreDoubles = identical(1, 1.0);
 
 /// Refuses a score that is not a finite number.
 ///
@@ -54,7 +63,17 @@ double _requireNumber(double score) {
 
 /// A dense float32 matrix, as found in unquantized `.bin` models.
 class DenseMatrix implements Matrix {
-  DenseMatrix._(this.rows, this.columns, this._data);
+  DenseMatrix._(this.rows, this.columns, this._data)
+    : _lanes =
+          columns % 4 == 0 &&
+              _data.offsetInBytes % 16 == 0 &&
+              !_numbersAreDoubles
+          ? Float32x4List.view(
+              _data.buffer,
+              _data.offsetInBytes,
+              _data.length ~/ 4,
+            )
+          : null;
 
   factory DenseMatrix.read(BinaryReader reader) {
     final rows = reader.int64();
@@ -82,11 +101,38 @@ class DenseMatrix implements Matrix {
 
   final Float32List _data;
 
+  /// The same weights four at a time, when every row starts on a 16-byte
+  /// boundary — `lid.176.bin` has 16 columns. A float32 sum rounds the same
+  /// whether it is taken alone or in a lane, and each lane still adds its
+  /// rows in order, so this changes the speed and not one bit of the answer.
+  final Float32x4List? _lanes;
+
   @override
   void addRowTo(Float32List target, int row) {
     final offset = row * columns;
     for (var i = 0; i < columns; i++) {
       target[i] += _data[offset + i];
+    }
+  }
+
+  @override
+  void addRowsTo(Float32List target, List<int> rows) {
+    final lanes = _lanes;
+    if (lanes == null || target.offsetInBytes % 16 != 0) {
+      for (final row in rows) {
+        addRowTo(target, row);
+      }
+
+      return;
+    }
+
+    final width = columns ~/ 4;
+    final sum = Float32x4List.view(target.buffer, target.offsetInBytes, width);
+    for (final row in rows) {
+      final offset = row * width;
+      for (var i = 0; i < width; i++) {
+        sum[i] += lanes[offset + i];
+      }
     }
   }
 
@@ -195,6 +241,15 @@ class QuantizedMatrix implements Matrix {
   @override
   void addRowTo(Float32List target, int row) =>
       _quantizer.addCode(target, _codes, row, _norm(row));
+
+  /// Row by row: the codes fold their products in with a single rounding,
+  /// which four lanes at a time would split in two.
+  @override
+  void addRowsTo(Float32List target, List<int> rows) {
+    for (final row in rows) {
+      addRowTo(target, row);
+    }
+  }
 
   @override
   double dotRow(Float32List vector, int row) =>
