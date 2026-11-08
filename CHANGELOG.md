@@ -1,3 +1,39 @@
+## Unreleased
+
+### Fixed
+
+- A write that fails during a download — a read-only directory, a full disk
+  — is a `ModelDownloadException`. It used to surface as an unhandled error
+  that killed the isolate. Each chunk is now written before the next is read,
+  which also keeps a fast network from queueing the model in memory.
+- A server that never answers has its connection dropped when the timeout
+  fires. The caller was told, but the socket kept the process alive.
+- An error response whose body stalls is bounded by `stallTimeout` like any
+  other body, and still reports its status.
+- `directory: ''` means the working directory in `download` as it already
+  did in `fileIn`, and a directory that cannot be created is a
+  `ModelDownloadException` rather than a raw `FileSystemException`. Stale
+  `.part` files are found however the directory is spelled.
+- `loadOrDownloadModel` fetches again, once, when a cached file has a good
+  header but does not read as a model — the truncated body 0.1.0 could leave
+  behind.
+- A `connectionTimeout` set on your own `HttpClient` is kept unless you pass
+  one to `ModelDownloader`, and a `baseUrl` without a trailing slash keeps
+  its last path segment.
+- An input matrix too short for its n-gram hash table, or for the rows a
+  prune index maps to, fails at load as a `FormatException` instead of as a
+  `RangeError` on the first text that hashes high.
+- A matrix size large enough to wrap the byte count on the VM fails as a
+  `FormatException` instead of an `OutOfMemoryError`.
+- `classify` answers `null` whenever the parse leaves nothing but the
+  end-of-sentence token: a leading newline with `joinLines: false`, or only
+  words the model cannot see.
+- The order of labels with exactly equal scores is documented for what it
+  is: libc++'s, which the goldens were generated against. A GCC build of
+  fastText on Linux breaks such ties differently.
+- `test/fasttext_classifier_test.dart` fails rather than skips when the
+  weights are missing and `CI` or `LANG_ID_REQUIRE_MODELS` is set.
+
 ## 0.2.0
 
 ### Fixed
