@@ -110,29 +110,41 @@ class ModelDownloadException implements Exception {
 class ModelDownloader {
   /// Creates a downloader.
   ///
-  /// [baseUrl] lets you point at a mirror or an internal copy; it must end
-  /// with a slash for the file name to resolve against it. Pass [httpClient]
-  /// to reuse a client you already configured — proxies, certificates,
-  /// timeouts; in that case closing it stays your responsibility, and
-  /// [connectionTimeout] is left to whatever you set on it.
+  /// [baseUrl] lets you point at a mirror or an internal copy. The model's
+  /// file name is appended to it; a missing trailing slash is added rather
+  /// than letting URI resolution quietly replace the last path segment.
+  /// Pass [httpClient] to reuse a client you already configured — proxies,
+  /// certificates, timeouts; in that case closing it stays your
+  /// responsibility.
   ///
   /// [connectionTimeout] bounds reaching the server and getting an answer
   /// out of it, [stallTimeout] the longest silence allowed in the middle of
   /// the body. Without them a server that accepts the connection and then
   /// says nothing holds the caller forever — and this is the call an app
-  /// makes while starting up.
+  /// makes while starting up. Left out, [connectionTimeout] is the one set
+  /// on [httpClient], if you passed a client that has one, and 30 seconds
+  /// otherwise.
   ModelDownloader({
     Uri? baseUrl,
     HttpClient? httpClient,
-    this.connectionTimeout = const Duration(seconds: 30),
+    Duration? connectionTimeout,
     this.stallTimeout = const Duration(seconds: 60),
-  }) : baseUrl = baseUrl ?? defaultBaseUrl,
+  }) : baseUrl = _withTrailingSlash(baseUrl ?? defaultBaseUrl),
+       connectionTimeout =
+           connectionTimeout ??
+           httpClient?.connectionTimeout ??
+           _defaultConnectionTimeout,
        _httpClient = httpClient ?? HttpClient(),
        _ownsClient = httpClient == null {
     if (_ownsClient) {
-      _httpClient.connectionTimeout = connectionTimeout;
+      _httpClient.connectionTimeout = this.connectionTimeout;
     }
   }
+
+  static const _defaultConnectionTimeout = Duration(seconds: 30);
+
+  static Uri _withTrailingSlash(Uri url) =>
+      url.path.endsWith('/') ? url : url.replace(path: '${url.path}/');
 
   /// Where Facebook publishes the models.
   static final Uri defaultBaseUrl = Uri.parse(
@@ -218,19 +230,38 @@ class ModelDownloader {
       );
     }
 
-    await Directory(directory).create(recursive: true);
-    await _discardStaleParts(target);
+    try {
+      // The empty string is the working directory, which exists; asking to
+      // create it fails with "path not found".
+      if (directory.isNotEmpty) {
+        await Directory(directory).create(recursive: true);
+      }
+      await _discardStaleParts(target);
+    } on FileSystemException catch (error) {
+      throw ModelDownloadException(
+        'could not prepare $directory for the model: $error',
+        uri: url,
+      );
+    }
     // A name of its own per attempt. Two isolates fetching the same model
     // used to open the same scratch file, interleave their chunks, and
     // rename the mixture into place, where it passed the header check and
     // was cached.
     final partial = File('${target.path}.$pid.${_attempts++}.part');
 
+    HttpClientRequest? request;
     try {
-      final request = await _httpClient.getUrl(url).timeout(connectionTimeout);
+      request = await _httpClient.getUrl(url).timeout(connectionTimeout);
       final response = await request.close().timeout(connectionTimeout);
       if (response.statusCode != HttpStatus.ok) {
-        await response.drain<void>();
+        // Bounded like the body below. The timeout is raised as an error
+        // event, which cancels the drain and with it the connection; a
+        // timeout on the drain's future would leave both running.
+        try {
+          await response.timeout(stallTimeout).drain<void>();
+        } on TimeoutException {
+          // The status is the news; an error page that stalls is not.
+        }
         throw ModelDownloadException(
           'server refused to serve the model',
           uri: url,
@@ -250,15 +281,21 @@ class ModelDownloader {
           ? response.contentLength
           : null;
       var received = 0;
-      final sink = partial.openWrite();
+      // Each chunk is written and awaited before the next is read. An IOSink
+      // reports a failed write only when it is closed, and until then the
+      // failure was an unhandled error that took the isolate down instead
+      // of reaching the catch below — a read-only directory or a full disk
+      // never became the documented exception. Awaiting also stops a fast
+      // network from queueing the whole model in memory ahead of the disk.
+      final file = await partial.open(mode: FileMode.writeOnly);
       try {
         await for (final chunk in response.timeout(stallTimeout)) {
-          sink.add(chunk);
+          await file.writeFrom(chunk);
           received += chunk.length;
           onProgress?.call(DownloadProgress(model, received, total));
         }
       } finally {
-        await sink.close();
+        await file.close();
       }
 
       await _verifyWhole(partial, model, received, total);
@@ -271,6 +308,9 @@ class ModelDownloader {
       await _discard(partial);
       rethrow;
     } on TimeoutException {
+      // Without this a server that never answers keeps its socket, and the
+      // process, alive long after the caller has been told it gave up.
+      request?.abort();
       await _discard(partial);
       throw ModelDownloadException(
         'the server stopped sending the model',
@@ -322,11 +362,16 @@ class ModelDownloader {
     }
 
     final cutoff = DateTime.now().subtract(_staleAfter);
-    final prefix = '${target.path}.';
+    // Compared by name, not by path: the listing spells the directory its
+    // own way, and `models//` or `./models` never matched it as text.
+    final prefix = '${_nameOf(target.path)}.';
     for (final entry in directory.listSync()) {
-      if (entry is! File ||
-          !entry.path.startsWith(prefix) ||
-          !entry.path.endsWith('.part')) {
+      if (entry is! File) {
+        continue;
+      }
+
+      final name = _nameOf(entry.path);
+      if (!name.startsWith(prefix) || !name.endsWith('.part')) {
         continue;
       }
 
@@ -338,6 +383,13 @@ class ModelDownloader {
         // Someone else's leftovers, or someone else got there first.
       }
     }
+  }
+
+  /// The last segment of [path], whichever separator it was written with.
+  static String _nameOf(String path) {
+    final cut = path.lastIndexOf(RegExp(r'[/\\]'));
+
+    return cut < 0 ? path : path.substring(cut + 1);
   }
 
   static Future<void> _discard(File partial) async {

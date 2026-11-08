@@ -374,4 +374,185 @@ void main() {
     );
     expect(requestCount, 1);
   });
+
+  group('review of 0.2.0', () {
+    /// A server that speaks raw TCP, for the cases [HttpServer] is too
+    /// well-behaved to produce. [onConnect] gets each accepted socket.
+    Future<ServerSocket> rawServer(
+      void Function(Socket socket) onConnect,
+    ) async {
+      final raw = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      raw.listen(onConnect);
+      addTearDown(raw.close);
+
+      return raw;
+    }
+
+    ModelDownloader impatientAt(int port) => ModelDownloader(
+      baseUrl: Uri.parse('http://127.0.0.1:$port/'),
+      connectionTimeout: const Duration(milliseconds: 300),
+      stallTimeout: const Duration(milliseconds: 300),
+    );
+
+    test(
+      'a server that never answers has its connection dropped on timeout',
+      () async {
+        // The caller used to be told about the timeout while the socket,
+        // and with it the process, stayed open for as long as the server
+        // cared to hold it.
+        final closed = Completer<void>();
+        final raw = await rawServer((socket) {
+          socket.listen((_) {}, onDone: closed.complete, onError: (_) {});
+        });
+        final impatient = impatientAt(raw.port);
+        try {
+          await expectLater(
+            impatient.download(
+              PretrainedModel.compact,
+              directory: workDir.path,
+            ),
+            throwsA(isA<ModelDownloadException>()),
+          );
+          await closed.future.timeout(const Duration(seconds: 5));
+        } finally {
+          await impatient.close();
+        }
+      },
+    );
+
+    test(
+      'an error page that stalls is still reported, with its status',
+      () async {
+        final raw = await rawServer((socket) {
+          socket
+            ..listen((_) {}, onError: (_) {})
+            ..write(
+              'HTTP/1.1 503 Service Unavailable\r\n'
+              'Content-Length: 1000\r\n\r\nsorry',
+            );
+        });
+        final impatient = impatientAt(raw.port);
+        try {
+          await expectLater(
+            impatient
+                .download(PretrainedModel.compact, directory: workDir.path)
+                .timeout(const Duration(seconds: 5)),
+            throwsA(
+              isA<ModelDownloadException>().having(
+                (e) => e.statusCode,
+                'statusCode',
+                HttpStatus.serviceUnavailable,
+              ),
+            ),
+          );
+        } finally {
+          await impatient.close();
+        }
+      },
+    );
+
+    test(
+      'a directory that cannot be written is a download exception',
+      () async {
+        // A failed write used to surface as an unhandled error that killed
+        // the isolate, and a directory that could not be created escaped
+        // as a raw FileSystemException.
+        final locked = Directory(pathIn('locked'))..createSync();
+        await Process.run('chmod', ['555', locked.path]);
+        addTearDown(() => Process.run('chmod', ['755', locked.path]));
+
+        await expectLater(
+          downloader.download(PretrainedModel.compact, directory: locked.path),
+          throwsA(isA<ModelDownloadException>()),
+        );
+        await expectLater(
+          downloader.download(
+            PretrainedModel.compact,
+            directory: '${locked.path}/below',
+          ),
+          throwsA(isA<ModelDownloadException>()),
+        );
+      },
+      skip: Platform.isWindows ? 'needs POSIX permissions' : false,
+    );
+
+    test('an empty directory means the working one', () async {
+      final previous = Directory.current;
+      Directory.current = workDir;
+      try {
+        final file = await downloader.download(
+          PretrainedModel.compact,
+          directory: '',
+        );
+        expect(File('${workDir.path}/lid.176.ftz').existsSync(), isTrue);
+        expect(await file.readAsBytes(), body);
+      } finally {
+        Directory.current = previous;
+      }
+    });
+
+    test(
+      'stale scratch files are found however the directory is spelled',
+      () async {
+        final stale = File(pathIn('lid.176.ftz.1.0.part'))
+          ..writeAsStringSync('left over')
+          ..setLastModifiedSync(
+            DateTime.now().subtract(const Duration(hours: 2)),
+          );
+
+        await downloader.download(
+          PretrainedModel.compact,
+          directory: '${workDir.path}//',
+        );
+        expect(stale.existsSync(), isFalse);
+      },
+    );
+
+    test('loadOrDownloadModel heals a cached model cut short', () async {
+      // 0.1.0 could cache a body cut in half behind a good header. The
+      // header check passes it, and only the full read notices.
+      File(
+        pathIn('lid.176.ftz'),
+      ).writeAsBytesSync(body.sublist(0, body.length - 5));
+
+      final classifier = await loadOrDownloadModel(
+        PretrainedModel.compact,
+        directory: workDir.path,
+        downloader: downloader,
+      );
+      expect(classifier.classify('alpha')!.label, 'x');
+      expect(requestCount, 1);
+    });
+
+    test('a client of your own keeps its connection timeout', () {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(minutes: 2);
+      addTearDown(client.close);
+
+      expect(
+        ModelDownloader(httpClient: client).connectionTimeout,
+        const Duration(minutes: 2),
+      );
+      expect(
+        ModelDownloader(
+          httpClient: client,
+          connectionTimeout: const Duration(seconds: 5),
+        ).connectionTimeout,
+        const Duration(seconds: 5),
+      );
+      expect(
+        ModelDownloader(httpClient: HttpClient()).connectionTimeout,
+        const Duration(seconds: 30),
+      );
+    });
+
+    test('a base URL without a trailing slash keeps its last segment', () {
+      expect(
+        ModelDownloader(
+          baseUrl: Uri.parse('https://mirror.example/fasttext'),
+        ).urlOf(PretrainedModel.compact).toString(),
+        'https://mirror.example/fasttext/lid.176.ftz',
+      );
+    });
+  });
 }
