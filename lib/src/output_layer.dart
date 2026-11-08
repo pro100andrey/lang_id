@@ -163,11 +163,17 @@ class _TopK {
   /// just past its end, which is what makes repeated pops a sort.
   ///
   /// The standard fixes the heap property but not what happens to equal
-  /// elements, and the two library implementations take the same route: the
-  /// hole from the front walks all the way down to a leaf before the tail
-  /// element is put in and sifted back up. Stopping the descent early — the
-  /// textbook sift-down — reorders ties differently and disagrees with the
-  /// reference on about half of them.
+  /// elements, so this follows one library: libc++, which the reference
+  /// build the goldens come from (Apple clang) links against. Its
+  /// `pop_heap` is Floyd's: the hole from the front walks all the way down
+  /// to a leaf before the tail element is put in and sifted back up.
+  ///
+  /// libstdc++, which a fastText built with GCC on Linux uses — the `pip`
+  /// wheel and the CLI there — takes a different route and orders exact
+  /// ties differently: on random tie-heavy inputs it disagrees with this
+  /// about half the time. Labels whose scores differ come back in the same
+  /// order either way; only labels with bit-identical scores are affected.
+  /// Goldens regenerated on Linux will disagree on such ties.
   void _popFront(int end) {
     final front = _items[0];
     final hole = _sinkHoleToLeaf(end);

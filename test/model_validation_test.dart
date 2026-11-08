@@ -25,6 +25,22 @@ void main() {
     throwsFormat(fragment),
   );
 
+  group('matrix shapes', () {
+    test('a row count that overflows the size is rejected', () {
+      // 2^61 rows of 2 columns is 2^64 bytes, which wraps to zero on the VM
+      // and used to pass the bounds check on its way to an OutOfMemoryError.
+      // The row count sits 16 bytes before the 3x2 input weights, which
+      // the output matrix (flag, two int64 dimensions, 2x2 weights) follows.
+      final rowsAt = model.length - 33 - 24 - 16;
+      final corrupt = Uint8List.fromList(model);
+      ByteData.view(corrupt.buffer)
+        ..setUint32(rowsAt, 0, Endian.little)
+        ..setUint32(rowsAt + 4, 0x20000000, Endian.little);
+
+      expectRejected(corrupt, 'does not fit');
+    });
+  });
+
   group('dictionary counts', () {
     test('a negative size is rejected', () {
       expectRejected(
@@ -68,6 +84,19 @@ void main() {
   });
 
   group('n-gram table', () {
+    test('an input matrix too short for its hash table is rejected', () {
+      // It used to load, and the first text that hashed past the end threw
+      // a RangeError from inside the arithmetic.
+      expectRejected(
+        patchInt32(
+          buildSyntheticModel(wordNgrams: 2, bucket: 10),
+          syntheticHeaderOffsets.bucket,
+          1000,
+        ),
+        'n-gram rows',
+      );
+    });
+
     test('word n-grams with nowhere to put them are refused', () {
       // fastText zeroes the table itself when it trains a model that needs
       // none, so an empty one is ordinary — and an empty one beside n-grams

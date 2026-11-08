@@ -264,7 +264,16 @@ spots are worth naming:
 * `d += a * b` in the dot product is **not** read as a fused multiply-add.
   C++ is allowed to contract it into one, and the build these goldens come
   from does not, so the product is rounded on its own. Reading it the other
-  way moves 27 of the 41 dense cases, by up to 398 ulps.
+  way moves 27 of the 41 dense cases, by up to 398 ulps. The quantized
+  matrix is the exception: there the product stays unrounded, and rounding
+  it breaks the `.ftz` sentence vectors.
+
+"The reference" is a particular build: the goldens were generated on Apple
+Silicon, where fastText links against libc++. Labels whose scores are
+bit-for-bit equal come back in the order libc++'s `std::pop_heap` leaves
+them, and this package reproduces that order. libstdc++, which a fastText
+built with GCC on Linux uses, breaks such exact ties differently. Labels
+with different scores are unaffected.
 
 One difference is not reproducible, and the tests bound it rather than hide
 it. fastText takes its exponentials in `float`, and a platform's `expf` is

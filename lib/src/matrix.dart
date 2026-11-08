@@ -63,6 +63,15 @@ class DenseMatrix implements Matrix {
       throw FormatException('a matrix of ${rows}x$columns cannot be read');
     }
 
+    // Both dimensions are untrusted int64 values and their product wraps on
+    // the VM, so the size is held to what is left before it is multiplied.
+    if (columns > 0 && rows > reader.remaining ~/ 4 ~/ columns) {
+      throw FormatException(
+        'the model is truncated or corrupt: a matrix of ${rows}x$columns '
+        'does not fit in the ${reader.remaining} bytes left',
+      );
+    }
+
     return DenseMatrix._(rows, columns, reader.float32List(rows * columns));
   }
 
@@ -128,7 +137,10 @@ class QuantizedMatrix implements Matrix {
     // fastText sizes the code block as one code per sub-space per row. Any
     // other value means the codes and the codebook describe different
     // matrices, and every lookup below would run off the end of one of them.
-    if (codeSize != rows * quantizer.subquantizers) {
+    // Divided rather than multiplied, so that a huge row count cannot wrap
+    // the product round to the code size.
+    if (codeSize % quantizer.subquantizers != 0 ||
+        codeSize ~/ quantizer.subquantizers != rows) {
       throw FormatException(
         'the quantized matrix carries $codeSize codes, but $rows rows of '
         '${quantizer.subquantizers} sub-spaces need '
@@ -249,6 +261,10 @@ class ProductQuantizer {
       final centroid = centroidOffset(m, codes[base + m]);
       final width = m == subquantizers - 1 ? lastSubDim : subDim;
       final offset = m * subDim;
+      // One rounding, not two as in DenseMatrix.dotRow: the product is left
+      // in double and rounded only when the sum is stored. That is not a
+      // guess. Rounding the product on its own breaks the bit-for-bit
+      // sentence vectors of lid.176.ftz, and moves 23 of its 41 predictions.
       for (var i = 0; i < width; i++) {
         target[offset + i] += scale * centroids[centroid + i];
       }
@@ -262,6 +278,12 @@ class ProductQuantizer {
       final centroid = centroidOffset(m, codes[base + m]);
       final width = m == subquantizers - 1 ? lastSubDim : subDim;
       final offset = m * subDim;
+      // One rounding, like addCode above rather than DenseMatrix.dotRow.
+      // Unlike addCode, the goldens cannot tell the two readings apart here:
+      // rounding the product separately gives the same 3 inexact cases of
+      // 41, and the same worst case of 8 ulps. Keep it consistent with
+      // addCode, which the goldens do pin down, unless a golden says
+      // otherwise.
       for (var i = 0; i < width; i++) {
         sum = float32(sum + vector[offset + i] * centroids[centroid + i]);
       }

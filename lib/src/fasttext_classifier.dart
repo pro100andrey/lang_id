@@ -155,10 +155,15 @@ class FastTextClassifier {
       );
     }
 
-    if (input.rows < dictionary.wordCount) {
+    // Not only the words: every hashed n-gram lands in a row past them, and
+    // a matrix cut short there used to load fine and then fail on the first
+    // text that hashed high, as a range error from inside the arithmetic.
+    final inputRowsNeeded = dictionary.inputRowsNeeded;
+    if (input.rows < inputRowsNeeded) {
       throw FormatException(
         'the input matrix has ${input.rows} rows, too few for '
-        '${dictionary.wordCount} words',
+        '${dictionary.wordCount} words and the n-gram rows after them: '
+        '$inputRowsNeeded are needed',
       );
     }
 
@@ -199,8 +204,10 @@ class FastTextClassifier {
   List<String> get labels => _labels;
 
   /// The most likely label for the text, or `null` when there is nothing
-  /// to predict from: the text holds nothing but whitespace, or every one
-  /// of its n-grams was dropped when the model was pruned.
+  /// to predict from: the text holds nothing but whitespace, the parse
+  /// stopped before reaching any of it (a leading newline with
+  /// `joinLines: false`), or every one of its n-grams was dropped when the
+  /// model was pruned.
   ///
   /// The empty case needs saying out loud, because fastText does not treat
   /// it as one. It appends a newline before parsing, which always yields the
@@ -214,11 +221,14 @@ class FastTextClassifier {
     double threshold = 0.0,
     bool joinLines = true,
   }) {
-    if (Dictionary.isBlank(text)) {
+    // Decided on the parse rather than the string: text that is not blank
+    // can still leave nothing but the end-of-sentence token behind.
+    final indices = _dictionary.lineToIndices(text, joinLines: joinLines);
+    if (!_dictionary.hasContent(indices)) {
       return null;
     }
 
-    final best = predict(text, threshold: threshold, joinLines: joinLines);
+    final best = _predictFrom(indices, 1, threshold);
 
     return best.isEmpty ? null : best.first;
   }
@@ -253,13 +263,18 @@ class FastTextClassifier {
 
     final wanted = k == _everyLabel ? _labels.length : k;
     final indices = _dictionary.lineToIndices(text, joinLines: joinLines);
+
+    return _predictFrom(indices, wanted, threshold);
+  }
+
+  List<Prediction> _predictFrom(List<int> indices, int k, double threshold) {
     if (indices.isEmpty) {
       return const [];
     }
     _fillHidden(_hidden, indices);
 
     return [
-      for (final scored in _output.predict(_hidden, wanted, threshold))
+      for (final scored in _output.predict(_hidden, k, threshold))
         Prediction(_labels[scored.label], float32(math.exp(scored.score))),
     ];
   }
@@ -280,9 +295,9 @@ class FastTextClassifier {
   /// There is no such thing as a text with nothing to embed, whatever this
   /// used to say: fastText appends a newline before parsing, which yields
   /// the end-of-sentence token, which is in every dictionary — so an empty
-  /// string comes back as that token's own vector rather than as zeros. Use
-  /// [Dictionary.isBlank], which is what [classify] does, to tell whether
-  /// there was anything to look at.
+  /// string comes back as that token's own vector rather than as zeros.
+  /// [classify] answers `null` for such text, which is the way to tell
+  /// whether there was anything to look at.
   Float32List sentenceVector(String text, {bool joinLines = true}) {
     final vector = Float32List(info.args.dim);
     final indices = _dictionary.lineToIndices(text, joinLines: joinLines);

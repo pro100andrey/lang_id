@@ -54,6 +54,13 @@ class Dictionary {
     for (var i = 0; i < pruneIndexSize; i++) {
       final from = reader.int32();
       final to = reader.int32();
+      // A negative row would land among the words' own rows, quietly
+      // scoring the wrong vector.
+      if (to < 0) {
+        throw FormatException(
+          'the prune index maps bucket $from to row $to',
+        );
+      }
       pruneIndex[from] = to;
     }
 
@@ -184,6 +191,45 @@ class Dictionary {
   /// `true` when the dictionary has been pruned, as in `lid.176.ftz`.
   bool get isPruned => _pruneIndexSize >= 0;
 
+  /// The fewest input-matrix rows that every index [lineToIndices] can
+  /// produce stays inside of.
+  ///
+  /// The words take the first [wordCount] rows. A model that hashes
+  /// n-grams adds the hash table after them: all of it when unpruned, and
+  /// up to the highest row the prune index maps to when pruned.
+  int get inputRowsNeeded {
+    final hashesNgrams = _args.maxCharNgram > 0 || _args.wordNgrams > 1;
+    if (!hashesNgrams || _pruneIndexSize == 0) {
+      return wordCount;
+    }
+
+    if (_pruneIndexSize < 0) {
+      return wordCount + _args.bucket;
+    }
+
+    var highest = -1;
+    for (final row in _pruneIndex.values) {
+      if (row > highest) {
+        highest = row;
+      }
+    }
+
+    return wordCount + highest + 1;
+  }
+
+  /// Whether [indices], as [lineToIndices] returned them, hold anything but
+  /// the end-of-sentence token that fastText appends to every line.
+  bool hasContent(List<int> indices) {
+    final eos = _index[endOfSentence];
+    for (final index in indices) {
+      if (index != eos) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// Model labels in index order, with the `__label__` prefix.
   List<String> get labels => [
     for (var i = wordCount; i < size; i++)
@@ -296,21 +342,6 @@ class Dictionary {
 
   static final _eosBytes = Uint8List.fromList(utf8.encode(endOfSentence));
 
-  /// Whether [text] holds nothing a model could look at: no character other
-  /// than the ones fastText splits words on.
-  ///
-  /// Every separator is ASCII, so code units are enough — anything else is
-  /// content, whatever it encodes to.
-  static bool isBlank(String text) {
-    for (var i = 0; i < text.length; i++) {
-      if (!_isSeparator(text.codeUnitAt(i))) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   static bool _isSeparator(int byte) =>
       byte == 0x20 || // space
       byte == 0x0a || // \n
@@ -373,8 +404,10 @@ class Dictionary {
 
       wordHashes?.add(hash(data, start, end));
       // The end-of-sentence token is the one word fastText never takes the
-      // subwords of, even when the dictionary has lost it.
-      if (!_equals(data, start, end, _eosBytes)) {
+      // subwords of, even when the dictionary has lost it. A model without
+      // character n-grams has none to take, and the copy into the scratch
+      // buffer would be wasted on every unknown word.
+      if (_args.maxCharNgram > 0 && !_equals(data, start, end, _eosBytes)) {
         final wrapped = _wrap(data, start, end);
         _computeSubwords(wrapped, 0, end - start + 2, indices);
       }
@@ -457,11 +490,10 @@ class Dictionary {
   /// Character n-grams of length `minCharNgram` to `maxCharNgram`. Length is
   /// counted in UTF-8 characters rather than bytes: continuation bytes of
   /// multi-byte sequences (`10xxxxxx`) are skipped.
+  ///
+  /// There is no guard on the table size: ModelArgs.read refuses a model
+  /// that asks for character n-grams without a table to hash them into.
   void _computeSubwords(Uint8List word, int start, int end, List<int> out) {
-    // A model trained without an n-gram table has nowhere to put them.
-    if (_args.bucket <= 0) {
-      return;
-    }
     for (var i = start; i < end; i++) {
       if ((word[i] & 0xC0) == 0x80) {
         continue;
