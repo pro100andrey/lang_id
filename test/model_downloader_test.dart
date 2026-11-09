@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:lang_id/lang_id_io.dart';
 import 'package:test/test.dart';
@@ -455,8 +456,9 @@ void main() {
       'a directory that cannot be written is a download exception',
       () async {
         // A failed write used to surface as an unhandled error that killed
-        // the isolate, and a directory that could not be created escaped
-        // as a raw FileSystemException.
+        // the isolate. The scratch file is now opened before the request, so
+        // the failure also comes before anything is asked of the server:
+        // an unread response would hold its socket, and the process, open.
         final locked = Directory(pathIn('locked'))..createSync();
         await Process.run('chmod', ['555', locked.path]);
         addTearDown(() => Process.run('chmod', ['755', locked.path]));
@@ -465,31 +467,106 @@ void main() {
           downloader.download(PretrainedModel.compact, directory: locked.path),
           throwsA(isA<ModelDownloadException>()),
         );
-        await expectLater(
-          downloader.download(
-            PretrainedModel.compact,
-            directory: '${locked.path}/below',
-          ),
-          throwsA(isA<ModelDownloadException>()),
-        );
+        expect(requestCount, 0);
       },
-      skip: Platform.isWindows ? 'needs POSIX permissions' : false,
+      skip: Platform.isWindows
+          ? 'needs POSIX permissions'
+          : _runsAsRoot()
+          ? 'root writes through the permission bits'
+          : false,
+    );
+
+    test(
+      'a directory that cannot be created is a download exception',
+      () async {
+        // A file where the directory should be: no permission bits involved,
+        // so this holds for root as well. It used to escape as a raw
+        // FileSystemException.
+        final blocker = File(pathIn('blocker'))..writeAsStringSync('');
+
+        for (final directory in [blocker.path, '${blocker.path}/below']) {
+          await expectLater(
+            downloader.download(PretrainedModel.compact, directory: directory),
+            throwsA(isA<ModelDownloadException>()),
+          );
+        }
+        expect(requestCount, 0);
+      },
     );
 
     test('an empty directory means the working one', () async {
-      final previous = Directory.current;
-      Directory.current = workDir;
-      try {
-        final file = await downloader.download(
-          PretrainedModel.compact,
-          directory: '',
-        );
-        expect(File('${workDir.path}/lid.176.ftz').existsSync(), isTrue);
-        expect(await file.readAsBytes(), body);
-      } finally {
-        Directory.current = previous;
-      }
+      // In a process of its own: the working directory belongs to the whole
+      // process, and changing it here would pull it out from under every
+      // suite that finds its models by a relative path.
+      final script = File(pathIn('empty_directory.dart'))
+        ..writeAsStringSync('''
+import 'package:lang_id/lang_id_io.dart';
+
+Future<void> main(List<String> args) async {
+  final downloader = ModelDownloader(baseUrl: Uri.parse(args.single));
+  try {
+    final file = await downloader.download(
+      PretrainedModel.compact,
+      directory: '',
+    );
+    print(file.path);
+  } finally {
+    await downloader.close();
+  }
+}
+''');
+      final packages = File('.dart_tool/package_config.json').absolute.path;
+      final run = await Process.run(Platform.resolvedExecutable, [
+        '--packages=$packages',
+        script.path,
+        'http://${server.address.host}:${server.port}/',
+      ], workingDirectory: workDir.path);
+
+      expect(run.exitCode, 0, reason: '${run.stdout}${run.stderr}');
+      expect((run.stdout as String).trim(), 'lid.176.ftz');
+      expect(File(pathIn('lid.176.ftz')).readAsBytesSync(), body);
     });
+
+    test(
+      'downloads from two isolates get scratch files of their own',
+      () async {
+        // The name used to be the process id and a counter, and the counter is
+        // per isolate: two isolates of one process both chose `.<pid>.0.part`.
+        // The server holds both requests, so both scratch files are open at
+        // once.
+        final held = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => held.close(force: true));
+        final waiting = <HttpRequest>[];
+        final bothArrived = Completer<void>();
+        held.listen((request) {
+          waiting.add(request);
+          if (waiting.length == 2) {
+            bothArrived.complete();
+          }
+        });
+
+        final base = 'http://${held.address.host}:${held.port}/';
+        final directory = workDir.path;
+        Future<void> fetch() => _downloadInIsolate(base, directory);
+        final downloads = [fetch(), fetch()];
+
+        await bothArrived.future.timeout(const Duration(seconds: 10));
+        final scratch = workDir
+            .listSync()
+            .where((entry) => entry.path.endsWith('.part'))
+            .toList();
+        expect(scratch, hasLength(2));
+
+        for (final request in waiting) {
+          request.response
+            ..contentLength = body.length
+            ..add(body);
+          await request.response.close();
+        }
+        await Future.wait(downloads);
+        expect(File(pathIn('lid.176.ftz')).readAsBytesSync(), body);
+      },
+    );
 
     test(
       'stale scratch files are found however the directory is spelled',
@@ -524,6 +601,52 @@ void main() {
       expect(requestCount, 1);
     });
 
+    test('the wait for a response is a stall, not a connection', () async {
+      // A short connect timeout on the client used to cut off a server
+      // that was merely slow to start answering.
+      final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => slow.close(force: true));
+      slow.listen((request) async {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        request.response
+          ..contentLength = body.length
+          ..add(body);
+        await request.response.close();
+      });
+      final patient = ModelDownloader(
+        baseUrl: Uri.parse('http://${slow.address.host}:${slow.port}/'),
+        connectionTimeout: const Duration(milliseconds: 200),
+      );
+      addTearDown(patient.close);
+
+      final file = await patient.download(
+        PretrainedModel.compact,
+        directory: workDir.path,
+      );
+      expect(file.readAsBytesSync(), body);
+    });
+
+    test(
+      'loadOrDownloadModel reports a fresh download that is broken',
+      () async {
+        // An error page in the cache is thrown away and fetched again by
+        // download itself. If what comes back is broken too, that is the
+        // answer: it used to count as the cache and be fetched a third time.
+        File(pathIn('lid.176.ftz')).writeAsStringSync('<html>not a model');
+        body = body.sublist(0, body.length - 5);
+
+        await expectLater(
+          loadOrDownloadModel(
+            PretrainedModel.compact,
+            directory: workDir.path,
+            downloader: downloader,
+          ),
+          throwsFormatException,
+        );
+        expect(requestCount, 1);
+      },
+    );
+
     test('a client of your own keeps its connection timeout', () {
       final client = HttpClient()
         ..connectionTimeout = const Duration(minutes: 2);
@@ -556,3 +679,28 @@ void main() {
     });
   });
 }
+
+/// Whether the suite runs as root, which writes through permission bits.
+bool _runsAsRoot() {
+  try {
+    final id = Process.runSync('id', ['-u']);
+
+    return (id.stdout as String).trim() == '0';
+  } on ProcessException {
+    return false;
+  }
+}
+
+/// Downloads the compact model from [base] in an isolate of its own. A
+/// top-level function, so that the closure sent along captures nothing but
+/// its two strings.
+Future<void> _downloadInIsolate(String base, String directory) => Isolate.run(
+  () async {
+    final downloader = ModelDownloader(baseUrl: Uri.parse(base));
+    try {
+      await downloader.download(PretrainedModel.compact, directory: directory);
+    } finally {
+      await downloader.close();
+    }
+  },
+);

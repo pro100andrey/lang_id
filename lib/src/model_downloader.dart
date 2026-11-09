@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'fasttext_classifier.dart';
@@ -117,13 +118,13 @@ class ModelDownloader {
   /// certificates, timeouts; in that case closing it stays your
   /// responsibility.
   ///
-  /// [connectionTimeout] bounds reaching the server and getting an answer
-  /// out of it, [stallTimeout] the longest silence allowed in the middle of
-  /// the body. Without them a server that accepts the connection and then
-  /// says nothing holds the caller forever — and this is the call an app
-  /// makes while starting up. Left out, [connectionTimeout] is the one set
-  /// on [httpClient], if you passed a client that has one, and 30 seconds
-  /// otherwise.
+  /// [connectionTimeout] bounds reaching the server, [stallTimeout] the
+  /// longest silence allowed once connected: while waiting for the response
+  /// to begin, and in the middle of the body. Without them a server that
+  /// accepts the connection and then says nothing holds the caller forever
+  /// — and this is the call an app makes while starting up. Left out,
+  /// [connectionTimeout] is the one set on [httpClient], if you passed a
+  /// client that has one, and 30 seconds otherwise.
   ModelDownloader({
     Uri? baseUrl,
     HttpClient? httpClient,
@@ -154,10 +155,12 @@ class ModelDownloader {
   /// Where models are fetched from; ends with a slash.
   final Uri baseUrl;
 
-  /// How long the server has to answer at all.
+  /// How long reaching the server may take.
   final Duration connectionTimeout;
 
-  /// How long the body may go quiet before the download is abandoned.
+  /// How long the server may go quiet once connected — before the response
+  /// begins or in the middle of the body — before the download is
+  /// abandoned.
   final Duration stallTimeout;
 
   final HttpClient _httpClient;
@@ -243,20 +246,34 @@ class ModelDownloader {
         uri: url,
       );
     }
-    // A name of its own per attempt. Two isolates fetching the same model
-    // used to open the same scratch file, interleave their chunks, and
-    // rename the mixture into place, where it passed the header check and
-    // was cached.
-    final partial = File('${target.path}.$pid.${_attempts++}.part');
+    // A name of its own per attempt. Two downloads of the same model used to
+    // open the same scratch file, interleave their chunks, and rename the
+    // mixture into place, where it passed the header check and was cached.
+    // The process id alone does not separate isolates of one process, and a
+    // counter is per isolate, so the name carries a random token as well.
+    final partial = File('${target.path}.$pid.${_scratchToken()}.part');
 
     HttpClientRequest? request;
+    var finished = false;
     try {
-      request = await _httpClient.getUrl(url).timeout(connectionTimeout);
-      final response = await request.close().timeout(connectionTimeout);
+      // Opened before anything is asked of the network. A directory that
+      // cannot be written then fails without a request in flight, rather
+      // than leaving an unread response holding its socket — and the
+      // process — open.
+      final file = await partial.open(mode: FileMode.writeOnly);
+      HttpClientResponse response;
+      try {
+        request = await _httpClient.getUrl(url).timeout(connectionTimeout);
+        response = await request.close().timeout(stallTimeout);
+      } on Object {
+        await file.close();
+        rethrow;
+      }
       if (response.statusCode != HttpStatus.ok) {
         // Bounded like the body below. The timeout is raised as an error
         // event, which cancels the drain and with it the connection; a
         // timeout on the drain's future would leave both running.
+        await file.close();
         try {
           await response.timeout(stallTimeout).drain<void>();
         } on TimeoutException {
@@ -287,7 +304,6 @@ class ModelDownloader {
       // of reaching the catch below — a read-only directory or a full disk
       // never became the documented exception. Awaiting also stops a fast
       // network from queueing the whole model in memory ahead of the disk.
-      final file = await partial.open(mode: FileMode.writeOnly);
       try {
         await for (final chunk in response.timeout(stallTimeout)) {
           await file.writeFrom(chunk);
@@ -298,6 +314,7 @@ class ModelDownloader {
         await file.close();
       }
 
+      finished = true;
       await _verifyWhole(partial, model, received, total);
       if (target.existsSync()) {
         await target.delete();
@@ -308,9 +325,6 @@ class ModelDownloader {
       await _discard(partial);
       rethrow;
     } on TimeoutException {
-      // Without this a server that never answers keeps its socket, and the
-      // process, alive long after the caller has been told it gave up.
-      request?.abort();
       await _discard(partial);
       throw ModelDownloadException(
         'the server stopped sending the model',
@@ -332,6 +346,14 @@ class ModelDownloader {
     } on Object {
       await _discard(partial);
       rethrow;
+    } finally {
+      // Whatever ended the download early — a timeout, a failed write, the
+      // caller's own onProgress — the request goes with it. Left alone, a
+      // server that never answers, or a body nobody reads, keeps its socket
+      // and the process alive long after the caller was told.
+      if (!finished) {
+        request?.abort();
+      }
     }
   }
 
@@ -343,9 +365,11 @@ class ModelDownloader {
     }
   }
 
-  /// How many attempts this isolate has made, so that two of them never
-  /// pick the same scratch file.
-  static var _attempts = 0;
+  static final _random = Random.secure();
+
+  /// Eight random hex digits for a scratch file name.
+  static String _scratchToken() =>
+      _random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
 
   /// Removes scratch files left by a run that was killed outright.
   ///

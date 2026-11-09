@@ -52,7 +52,7 @@ Future<FastTextClassifier> loadOrDownloadModel(
 }) async {
   final client = downloader ?? ModelDownloader();
   try {
-    final cached = !force && client.fileIn(directory, model).existsSync();
+    final before = client.fileIn(directory, model).statSync();
     final file = await client.download(
       model,
       directory: directory,
@@ -64,9 +64,11 @@ Future<FastTextClassifier> loadOrDownloadModel(
     } on FormatException {
       // download only checks the header of a file that is already there,
       // and a body cut short behind a good header — what 0.1.0 could cache —
-      // fails only here. Fetching once more heals it; a fresh download that
-      // fails as well is a real problem and is reported as one.
-      if (!cached) {
+      // fails only here. Fetching once more heals it. A file download just
+      // wrote is a real problem and is reported as one: that includes a
+      // cached file download itself threw away and fetched again, which is
+      // why this compares the file rather than asking whether one existed.
+      if (!_servedFromDisk(before, file.statSync())) {
         rethrow;
       }
     }
@@ -84,3 +86,11 @@ Future<FastTextClassifier> loadOrDownloadModel(
     }
   }
 }
+
+/// Whether [after] is the very file [before] described: download returned
+/// what was already on disk instead of writing a new one. A download renames
+/// a freshly written file into place, which changes its modification time.
+bool _servedFromDisk(FileStat before, FileStat after) =>
+    before.type != FileSystemEntityType.notFound &&
+    before.modified == after.modified &&
+    before.size == after.size;

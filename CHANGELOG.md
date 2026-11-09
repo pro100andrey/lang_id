@@ -6,8 +6,17 @@
   — is a `ModelDownloadException`. It used to surface as an unhandled error
   that killed the isolate. Each chunk is now written before the next is read,
   which also keeps a fast network from queueing the model in memory.
-- A server that never answers has its connection dropped when the timeout
-  fires. The caller was told, but the socket kept the process alive.
+- A download that ends early for any reason — a timeout, a failed write,
+  an exception from `onProgress` — aborts its request. A server that never
+  answered, or a body nobody read, kept the socket and the process alive.
+  The scratch file is opened before the request, so a directory that cannot
+  be written fails without asking anything of the server.
+- Scratch file names carry a random token. The process id and a per-isolate
+  counter gave two isolates of one process the same file, and interleaved
+  their downloads in it.
+- `connectionTimeout` bounds reaching the server, and the wait for the
+  response to begin counts as a stall, bounded by `stallTimeout`. A short
+  connect timeout used to cut off a server that was only slow to answer.
 - An error response whose body stalls is bounded by `stallTimeout` like any
   other body, and still reports its status.
 - `directory: ''` means the working directory in `download` as it already
@@ -16,7 +25,8 @@
   `.part` files are found however the directory is spelled.
 - `loadOrDownloadModel` fetches again, once, when a cached file has a good
   header but does not read as a model — the truncated body 0.1.0 could leave
-  behind.
+  behind. A file it has just downloaded and cannot read is reported, not
+  fetched again.
 - A `connectionTimeout` set on your own `HttpClient` is kept unless you pass
   one to `ModelDownloader`, and a `baseUrl` without a trailing slash keeps
   its last path segment.
