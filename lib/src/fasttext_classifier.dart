@@ -206,8 +206,9 @@ class FastTextClassifier {
   /// The most likely label for the text, or `null` when there is nothing
   /// to predict from: the text holds nothing but whitespace, the parse
   /// stopped before reaching any of it (a leading newline with
-  /// `joinLines: false`), or every one of its n-grams was dropped when the
-  /// model was pruned.
+  /// `joinLines: false`), or nothing in it reaches the model — every word
+  /// unknown to a model without character n-grams, or every n-gram dropped
+  /// when the model was pruned.
   ///
   /// The empty case needs saying out loud, because fastText does not treat
   /// it as one. It appends a newline before parsing, which always yields the

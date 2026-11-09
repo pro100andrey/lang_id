@@ -376,7 +376,7 @@ void main() {
     expect(requestCount, 1);
   });
 
-  group('review of 0.2.0', () {
+  group('when a download goes wrong', () {
     /// A server that speaks raw TCP, for the cases [HttpServer] is too
     /// well-behaved to produce. [onConnect] gets each accepted socket.
     Future<ServerSocket> rawServer(

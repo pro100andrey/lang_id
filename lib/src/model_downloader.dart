@@ -196,12 +196,18 @@ class ModelDownloader {
   ///
   /// Returns the file on disk. When it is already there and [force] is false,
   /// nothing is fetched — unless what is there is not a model, which is
-  /// thrown away and fetched again rather than reported forever.
+  /// thrown away and fetched again rather than reported forever. A file
+  /// already in place is judged by its header alone, since reading all of
+  /// it is the caller's next step anyway; `loadOrDownloadModel` does read
+  /// it, and fetches again a file that turns out to be cut short.
   /// [onProgress] is called as bytes arrive.
   ///
-  /// Throws [ModelDownloadException] when the server refuses, the connection
-  /// fails or stalls, or the bytes that arrive are not a whole fastText
-  /// model.
+  /// Throws [ModelDownloadException] when the directory cannot be created or
+  /// written, the server refuses, the connection fails or stalls, or the
+  /// bytes that arrive are not a whole fastText model. A download that ends
+  /// early, for whatever reason, releases its connection. Downloads of the
+  /// same model at once, from any isolate or process, each write to a
+  /// scratch file of their own.
   Future<File> download(
     PretrainedModel model, {
     required String directory,

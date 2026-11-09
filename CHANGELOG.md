@@ -1,12 +1,29 @@
-## Unreleased
+## 0.3.0
+
+### Changed
+
+Behaviour that a caller can see, though no call that compiled stops compiling.
+Each was a surprise rather than a contract, but code written against 0.2.0
+may notice.
+
+- `connectionTimeout` bounds reaching the server, and the wait for the
+  response to begin counts as a stall, bounded by `stallTimeout`. A short
+  connect timeout used to cut off a server that was only slow to answer.
+- A `connectionTimeout` set on your own `HttpClient` is kept unless you pass
+  one to `ModelDownloader`, and a `baseUrl` without a trailing slash keeps
+  its last path segment.
+- `classify` answers `null` whenever the parse leaves nothing but the
+  end-of-sentence token: a leading newline with `joinLines: false`, or only
+  words the model cannot see.
 
 ### Performance
 
-Measured in an AOT build on the 41 reference texts; answers are unchanged
-bit for bit.
+Measured in an AOT build on the 38 non-blank texts of the parity suite;
+answers are unchanged bit for bit.
 
-- `predict` is about 22% faster on `lid.176.ftz` (10.1 → 7.8 µs a text) and
-  on `lid.176.bin` (9.5 → 7.4 µs), and `lid.176.ftz` loads in half the time.
+- `predict` is about a quarter faster on `lid.176.ftz` (10.1 → 7.7 µs a text)
+  and on `lid.176.bin` (9.5 → 7.3 µs), and `lid.176.ftz` loads in half the
+  time.
 - Words are looked up by their bytes in a table of their own, the way
   fastText does it, instead of building a string for every token. The
   dictionary no longer keeps a string per word either.
@@ -33,9 +50,6 @@ bit for bit.
 - Scratch file names carry a random token. The process id and a per-isolate
   counter gave two isolates of one process the same file, and interleaved
   their downloads in it.
-- `connectionTimeout` bounds reaching the server, and the wait for the
-  response to begin counts as a stall, bounded by `stallTimeout`. A short
-  connect timeout used to cut off a server that was only slow to answer.
 - An error response whose body stalls is bounded by `stallTimeout` like any
   other body, and still reports its status.
 - `directory: ''` means the working directory in `download` as it already
@@ -46,17 +60,12 @@ bit for bit.
   header but does not read as a model — the truncated body 0.1.0 could leave
   behind. A file it has just downloaded and cannot read is reported, not
   fetched again.
-- A `connectionTimeout` set on your own `HttpClient` is kept unless you pass
-  one to `ModelDownloader`, and a `baseUrl` without a trailing slash keeps
-  its last path segment.
 - An input matrix too short for its n-gram hash table, or for the rows a
   prune index maps to, fails at load as a `FormatException` instead of as a
-  `RangeError` on the first text that hashes high.
+  `RangeError` on the first text that hashes high. So does a prune index
+  that maps to a negative row.
 - A matrix size large enough to wrap the byte count on the VM fails as a
   `FormatException` instead of an `OutOfMemoryError`.
-- `classify` answers `null` whenever the parse leaves nothing but the
-  end-of-sentence token: a leading newline with `joinLines: false`, or only
-  words the model cannot see.
 - The order of labels with exactly equal scores is documented for what it
   is: libc++'s, which the goldens were generated against. A GCC build of
   fastText on Linux breaks such ties differently.

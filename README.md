@@ -52,20 +52,27 @@ try {
   half-written model behind.
 * `fileIn(directory, model)` tells you where the file will land without
   touching the network — handy for deciding whether to show a progress bar.
-* `ModelDownloader(baseUrl: ...)` points at a mirror or an internal copy;
-  `ModelDownloader(httpClient: ...)` reuses a client you already configured
-  with proxies, certificates or timeouts.
+* `ModelDownloader(baseUrl: ...)` points at a mirror or an internal copy,
+  with or without a trailing slash; `ModelDownloader(httpClient: ...)` reuses
+  a client you already configured with proxies, certificates or a connection
+  timeout, which the downloader then keeps.
 * Failures come back as `ModelDownloadException`, including the case where
   what arrived is not a fastText model at all — a captive portal or an error
-  page, for instance. A file already on disk that turns out not to be a model
-  is thrown away and fetched again, rather than reported forever.
+  page, for instance — and the case where the directory cannot be created or
+  written. A file already on disk that turns out not to be a model is thrown
+  away and fetched again, rather than reported forever; `loadOrDownloadModel`
+  does the same, once, for a cached file whose header is fine but whose body
+  is not.
 * A body that stops early is refused: against the announced `Content-Length`
   when there is one, and by reading the file as a model when there is not,
   since a chunked response cut in half ends just as quietly as a whole one.
-* Reaching the server, getting an answer and the gaps in between are all
-  bounded — `ModelDownloader(connectionTimeout: ..., stallTimeout: ...)` —
-  so a mirror that accepts the connection and says nothing cannot hang the
-  app that is starting up.
+* Reaching the server is bounded by `connectionTimeout`, and every silence
+  after that — before the response begins and in the middle of the body — by
+  `stallTimeout`. A mirror that accepts the connection and says nothing cannot
+  hang the app that is starting up, and a download given up on releases its
+  connection, so a command-line tool exits instead of lingering.
+* Downloads of the same model at once — from two isolates or two processes —
+  write to scratch files of their own and never mix.
 
 The same thing from the command line:
 
@@ -82,13 +89,15 @@ quantization and gives up almost nothing on typical text; start with it.
 | --- | --- | --- |
 | File size | 916 KB | 125 MB |
 | Memory for the model | ~1 MB | ~125 MB |
-| Load time | ~20 ms | ~50 ms |
-| Prediction | ~5 µs | ~5 µs |
+| Load time | ~4 ms | ~55 ms |
+| Prediction | ~8 µs | ~7 µs |
 
-Measured on Apple Silicon, Dart 3.13, short strings, a single isolate — a bit
-under 200 thousand predictions per second on one thread. Quantization costs
-nothing at prediction time: decoding a row is eight table lookups, and the
-work is dominated by hashing the character n-grams either way.
+Measured in an AOT build on a Ryzen 9 3900X, Dart 3.13, on the 38 non-blank
+texts of the parity suite, one isolate: around 130 thousand predictions per
+second on one thread. Under `dart run` the first load takes longer while the
+code is compiled — about 25 ms and 90 ms. Quantization costs almost nothing at
+prediction time: decoding a row is eight table lookups, and the work is
+dominated by hashing the character n-grams either way.
 
 ## Usage
 
@@ -156,8 +165,8 @@ arrive.
 * **Loading the 125 MB model blocks** for tens of milliseconds and allocates
   125 MB. Handing the loaded classifier to another isolate copies its data,
   which defeats the point at that size — load and predict inside one
-  long-lived isolate instead. The compact model loads in about 20 ms, so it
-  rarely needs any of this.
+  long-lived isolate instead. The compact model loads in a few milliseconds,
+  so it rarely needs any of this.
 
 ## A classifier of your own
 
@@ -300,13 +309,14 @@ there is nothing to predict.
 
 `package:lang_id/lang_id.dart` does not depend on `dart:io`. Everything that
 would trip up dart2js is worked around: 64-bit fields are assembled from two
-32-bit words, and the n-gram hash multiplies by halves, because the product of
-two 32-bit numbers does not fit in a double's mantissa. The `binary_reader`,
-`dictionary` and `synthetic_model` tests run in Chrome:
+32-bit words, and on the web the n-gram hash multiplies by halves, because the
+product of two 32-bit numbers does not fit in a double's mantissa. The VM
+multiplies directly and sums dense rows with SIMD; the web keeps the plain
+loops, and both give the same answers. Every test that does not need
+`dart:io` runs in Chrome:
 
 ```sh
-dart test -p chrome test/binary_reader_test.dart test/dictionary_test.dart \
-    test/synthetic_model_test.dart
+dart test -p chrome
 ```
 
 Loading weights from disk lives in a separate library,
@@ -318,10 +328,11 @@ Loading weights from disk lives in a separate library,
 | --- | --- |
 | `lib/src/binary_reader.dart` | cursor over the file, 64-bit fields without `getInt64` |
 | `lib/src/model_args.dart` | the header of hyper-parameters |
-| `lib/src/dictionary.dart` | FNV-1a hash, character n-grams, tokenization |
+| `lib/src/dictionary.dart` | FNV-1a hash, word lookup, character n-grams, tokenization |
 | `lib/src/matrix.dart` | dense and quantized matrices, product quantizer |
 | `lib/src/output_layer.dart` | Huffman tree, softmax, sigmoids |
 | `lib/src/float32.dart` | rounding intermediate results to float32 |
+| `lib/src/platform.dart` | which arithmetic the platform has: VM or web |
 | `lib/src/model_format.dart` | format signature and version constants |
 | `lib/src/fasttext_classifier.dart` | assembling the model and predicting |
 | `lib/src/model_downloader.dart` | fetching the weights into a directory |

@@ -172,7 +172,7 @@ class Dictionary {
   /// malformed UTF-8 would collapse into U+FFFD and produce false matches.
   final _WordTable _index;
 
-  /// The prune map size as stored in the file: -1 means the model is not
+  /// The prune index size as stored in the file: -1 means the model is not
   /// pruned, 0 means it is pruned down to nothing (every character n-gram is
   /// dropped), and a positive value is the size of the remapping.
   final int _pruneIndexSize;
