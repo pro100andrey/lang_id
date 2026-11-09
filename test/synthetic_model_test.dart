@@ -72,8 +72,24 @@ void main() {
         expect(classifier.predict(''), isNotEmpty);
       });
 
-      test('text that only looks blank is not', () {
-        expect(classifier.classify('\u00a0'), isNotNull);
+      test('a non-breaking space is part of a word, not a gap', () {
+        // A tab separates words and leaves alpha to be found; a
+        // non-breaking space does not, and alpha\u00a0 is a word this model
+        // has never seen and, without n-grams, cannot break into pieces.
+        expect(classifier.classify('\talpha')!.label, 'x');
+        expect(classifier.classify('\u00a0alpha'), isNull);
+      });
+
+      test('a parse that stops before the text has nothing to go on', () {
+        // With joinLines off the parse ends at the first newline, so only
+        // the end-of-sentence token is left — the answer classify exists
+        // to keep from callers.
+        expect(classifier.classify('\nalpha', joinLines: false), isNull);
+        expect(classifier.classify('\nalpha')!.label, 'x');
+      });
+
+      test('nothing but unknown words is nothing to go on', () {
+        expect(classifier.classify('unknownword'), isNull);
       });
     });
 

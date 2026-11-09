@@ -72,7 +72,15 @@ class BinaryReader {
   }
 
   Float32List float32List(int count) {
-    _require(count * 4);
+    // Divided rather than multiplied: the count is an untrusted int64, and
+    // `count * 4` wraps on the VM — 2^62 floats turn into a request for zero
+    // bytes, which passes, and the allocation below fails as an Error.
+    if (count < 0 || count > remaining ~/ 4) {
+      throw FormatException(
+        'the model is truncated or corrupt: $count floats wanted at offset '
+        '$_offset, $remaining bytes left',
+      );
+    }
     final result = Float32List(count);
     if (_hostIsLittleEndian) {
       Uint8List.view(result.buffer).setRange(0, count * 4, bytes, _offset);

@@ -7,10 +7,21 @@ import 'dart:typed_data';
 import 'package:lang_id/lang_id_io.dart';
 import 'package:test/test.dart';
 
+import 'support/parity.dart';
+
 void main() {
   final modelFile = File('models/lid.176.ftz');
   if (!modelFile.existsSync()) {
-    test('no model', () {}, skip: 'run dart run tool/download_model.dart');
+    if (modelsAreRequired) {
+      test('the weights are missing', () {
+        fail(
+          '${modelFile.path} is not there; run dart run '
+          'tool/download_model.dart',
+        );
+      });
+    } else {
+      test('no model', () {}, skip: 'run dart run tool/download_model.dart');
+    }
     return;
   }
 

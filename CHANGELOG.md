@@ -1,3 +1,77 @@
+## 0.3.0
+
+### Changed
+
+Behaviour that a caller can see, though no call that compiled stops compiling.
+Each was a surprise rather than a contract, but code written against 0.2.0
+may notice.
+
+- `connectionTimeout` bounds reaching the server, and the wait for the
+  response to begin counts as a stall, bounded by `stallTimeout`. A short
+  connect timeout used to cut off a server that was only slow to answer.
+- A `connectionTimeout` set on your own `HttpClient` is kept unless you pass
+  one to `ModelDownloader`, and a `baseUrl` without a trailing slash keeps
+  its last path segment.
+- `classify` answers `null` whenever the parse leaves nothing but the
+  end-of-sentence token: a leading newline with `joinLines: false`, or only
+  words the model cannot see.
+
+### Performance
+
+Measured in an AOT build on the 38 non-blank texts of the parity suite;
+answers are unchanged bit for bit.
+
+- `predict` is about a quarter faster on `lid.176.ftz` (10.1 → 7.7 µs a text)
+  and on `lid.176.bin` (9.5 → 7.3 µs), and `lid.176.ftz` loads in half the
+  time.
+- Words are looked up by their bytes in a table of their own, the way
+  fastText does it, instead of building a string for every token. The
+  dictionary no longer keeps a string per word either.
+- The prune index of a quantized model is two flat integer lists rather than
+  a map; it is read for every character n-gram.
+- The hash of each character n-gram carries on from the one before it
+  instead of starting over, and on the VM it multiplies directly rather than
+  in halves, which only the web needs.
+- A dense matrix whose width is a multiple of four sums its rows four floats
+  at a time on the VM.
+- Cached subwords are packed into `Int32List`s.
+
+### Fixed
+
+- A write that fails during a download — a read-only directory, a full disk
+  — is a `ModelDownloadException`. It used to surface as an unhandled error
+  that killed the isolate. Each chunk is now written before the next is read,
+  which also keeps a fast network from queueing the model in memory.
+- A download that ends early for any reason — a timeout, a failed write,
+  an exception from `onProgress` — aborts its request. A server that never
+  answered, or a body nobody read, kept the socket and the process alive.
+  The scratch file is opened before the request, so a directory that cannot
+  be written fails without asking anything of the server.
+- Scratch file names carry a random token. The process id and a per-isolate
+  counter gave two isolates of one process the same file, and interleaved
+  their downloads in it.
+- An error response whose body stalls is bounded by `stallTimeout` like any
+  other body, and still reports its status.
+- `directory: ''` means the working directory in `download` as it already
+  did in `fileIn`, and a directory that cannot be created is a
+  `ModelDownloadException` rather than a raw `FileSystemException`. Stale
+  `.part` files are found however the directory is spelled.
+- `loadOrDownloadModel` fetches again, once, when a cached file has a good
+  header but does not read as a model — the truncated body 0.1.0 could leave
+  behind. A file it has just downloaded and cannot read is reported, not
+  fetched again.
+- An input matrix too short for its n-gram hash table, or for the rows a
+  prune index maps to, fails at load as a `FormatException` instead of as a
+  `RangeError` on the first text that hashes high. So does a prune index
+  that maps to a negative row.
+- A matrix size large enough to wrap the byte count on the VM fails as a
+  `FormatException` instead of an `OutOfMemoryError`.
+- The order of labels with exactly equal scores is documented for what it
+  is: libc++'s, which the goldens were generated against. A GCC build of
+  fastText on Linux breaks such ties differently.
+- `test/fasttext_classifier_test.dart` fails rather than skips when the
+  weights are missing and `CI` or `LANG_ID_REQUIRE_MODELS` is set.
+
 ## 0.2.0
 
 ### Fixed

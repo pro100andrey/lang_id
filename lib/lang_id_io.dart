@@ -38,8 +38,8 @@ FastTextClassifier loadModelSync(String path) =>
 /// ```
 ///
 /// A file already in [directory] is read as it is; one that turns out not to
-/// be a model is fetched again. Pass [force] to fetch even when the file is
-/// fine.
+/// be a model, or not a whole one, is fetched again, once. Pass [force] to
+/// fetch even when the file is fine.
 ///
 /// Pass [downloader] to control the mirror, the [HttpClient] or the
 /// timeouts; otherwise a default one is created and closed here.
@@ -52,16 +52,45 @@ Future<FastTextClassifier> loadOrDownloadModel(
 }) async {
   final client = downloader ?? ModelDownloader();
   try {
+    final before = client.fileIn(directory, model).statSync();
     final file = await client.download(
       model,
       directory: directory,
       force: force,
       onProgress: onProgress,
     );
-    return .fromBytes(await file.readAsBytes());
+    try {
+      return .fromBytes(await file.readAsBytes());
+    } on FormatException {
+      // download only checks the header of a file that is already there,
+      // and a body cut short behind a good header — what 0.1.0 could cache —
+      // fails only here. Fetching once more heals it. A file download just
+      // wrote is a real problem and is reported as one: that includes a
+      // cached file download itself threw away and fetched again, which is
+      // why this compares the file rather than asking whether one existed.
+      if (!_servedFromDisk(before, file.statSync())) {
+        rethrow;
+      }
+    }
+
+    final refetched = await client.download(
+      model,
+      directory: directory,
+      force: true,
+      onProgress: onProgress,
+    );
+    return .fromBytes(await refetched.readAsBytes());
   } finally {
     if (downloader == null) {
       await client.close();
     }
   }
 }
+
+/// Whether [after] is the very file [before] described: download returned
+/// what was already on disk instead of writing a new one. A download renames
+/// a freshly written file into place, which changes its modification time.
+bool _servedFromDisk(FileStat before, FileStat after) =>
+    before.type != FileSystemEntityType.notFound &&
+    before.modified == after.modified &&
+    before.size == after.size;

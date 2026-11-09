@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'fasttext_classifier.dart';
@@ -110,29 +111,41 @@ class ModelDownloadException implements Exception {
 class ModelDownloader {
   /// Creates a downloader.
   ///
-  /// [baseUrl] lets you point at a mirror or an internal copy; it must end
-  /// with a slash for the file name to resolve against it. Pass [httpClient]
-  /// to reuse a client you already configured — proxies, certificates,
-  /// timeouts; in that case closing it stays your responsibility, and
-  /// [connectionTimeout] is left to whatever you set on it.
+  /// [baseUrl] lets you point at a mirror or an internal copy. The model's
+  /// file name is appended to it; a missing trailing slash is added rather
+  /// than letting URI resolution quietly replace the last path segment.
+  /// Pass [httpClient] to reuse a client you already configured — proxies,
+  /// certificates, timeouts; in that case closing it stays your
+  /// responsibility.
   ///
-  /// [connectionTimeout] bounds reaching the server and getting an answer
-  /// out of it, [stallTimeout] the longest silence allowed in the middle of
-  /// the body. Without them a server that accepts the connection and then
-  /// says nothing holds the caller forever — and this is the call an app
-  /// makes while starting up.
+  /// [connectionTimeout] bounds reaching the server, [stallTimeout] the
+  /// longest silence allowed once connected: while waiting for the response
+  /// to begin, and in the middle of the body. Without them a server that
+  /// accepts the connection and then says nothing holds the caller forever
+  /// — and this is the call an app makes while starting up. Left out,
+  /// [connectionTimeout] is the one set on [httpClient], if you passed a
+  /// client that has one, and 30 seconds otherwise.
   ModelDownloader({
     Uri? baseUrl,
     HttpClient? httpClient,
-    this.connectionTimeout = const Duration(seconds: 30),
+    Duration? connectionTimeout,
     this.stallTimeout = const Duration(seconds: 60),
-  }) : baseUrl = baseUrl ?? defaultBaseUrl,
+  }) : baseUrl = _withTrailingSlash(baseUrl ?? defaultBaseUrl),
+       connectionTimeout =
+           connectionTimeout ??
+           httpClient?.connectionTimeout ??
+           _defaultConnectionTimeout,
        _httpClient = httpClient ?? HttpClient(),
        _ownsClient = httpClient == null {
     if (_ownsClient) {
-      _httpClient.connectionTimeout = connectionTimeout;
+      _httpClient.connectionTimeout = this.connectionTimeout;
     }
   }
+
+  static const _defaultConnectionTimeout = Duration(seconds: 30);
+
+  static Uri _withTrailingSlash(Uri url) =>
+      url.path.endsWith('/') ? url : url.replace(path: '${url.path}/');
 
   /// Where Facebook publishes the models.
   static final Uri defaultBaseUrl = Uri.parse(
@@ -142,10 +155,12 @@ class ModelDownloader {
   /// Where models are fetched from; ends with a slash.
   final Uri baseUrl;
 
-  /// How long the server has to answer at all.
+  /// How long reaching the server may take.
   final Duration connectionTimeout;
 
-  /// How long the body may go quiet before the download is abandoned.
+  /// How long the server may go quiet once connected — before the response
+  /// begins or in the middle of the body — before the download is
+  /// abandoned.
   final Duration stallTimeout;
 
   final HttpClient _httpClient;
@@ -181,12 +196,18 @@ class ModelDownloader {
   ///
   /// Returns the file on disk. When it is already there and [force] is false,
   /// nothing is fetched — unless what is there is not a model, which is
-  /// thrown away and fetched again rather than reported forever.
+  /// thrown away and fetched again rather than reported forever. A file
+  /// already in place is judged by its header alone, since reading all of
+  /// it is the caller's next step anyway; `loadOrDownloadModel` does read
+  /// it, and fetches again a file that turns out to be cut short.
   /// [onProgress] is called as bytes arrive.
   ///
-  /// Throws [ModelDownloadException] when the server refuses, the connection
-  /// fails or stalls, or the bytes that arrive are not a whole fastText
-  /// model.
+  /// Throws [ModelDownloadException] when the directory cannot be created or
+  /// written, the server refuses, the connection fails or stalls, or the
+  /// bytes that arrive are not a whole fastText model. A download that ends
+  /// early, for whatever reason, releases its connection. Downloads of the
+  /// same model at once, from any isolate or process, each write to a
+  /// scratch file of their own.
   Future<File> download(
     PretrainedModel model, {
     required String directory,
@@ -218,19 +239,52 @@ class ModelDownloader {
       );
     }
 
-    await Directory(directory).create(recursive: true);
-    await _discardStaleParts(target);
-    // A name of its own per attempt. Two isolates fetching the same model
-    // used to open the same scratch file, interleave their chunks, and
-    // rename the mixture into place, where it passed the header check and
-    // was cached.
-    final partial = File('${target.path}.$pid.${_attempts++}.part');
-
     try {
-      final request = await _httpClient.getUrl(url).timeout(connectionTimeout);
-      final response = await request.close().timeout(connectionTimeout);
+      // The empty string is the working directory, which exists; asking to
+      // create it fails with "path not found".
+      if (directory.isNotEmpty) {
+        await Directory(directory).create(recursive: true);
+      }
+      await _discardStaleParts(target);
+    } on FileSystemException catch (error) {
+      throw ModelDownloadException(
+        'could not prepare $directory for the model: $error',
+        uri: url,
+      );
+    }
+    // A name of its own per attempt. Two downloads of the same model used to
+    // open the same scratch file, interleave their chunks, and rename the
+    // mixture into place, where it passed the header check and was cached.
+    // The process id alone does not separate isolates of one process, and a
+    // counter is per isolate, so the name carries a random token as well.
+    final partial = File('${target.path}.$pid.${_scratchToken()}.part');
+
+    HttpClientRequest? request;
+    var finished = false;
+    try {
+      // Opened before anything is asked of the network. A directory that
+      // cannot be written then fails without a request in flight, rather
+      // than leaving an unread response holding its socket — and the
+      // process — open.
+      final file = await partial.open(mode: FileMode.writeOnly);
+      HttpClientResponse response;
+      try {
+        request = await _httpClient.getUrl(url).timeout(connectionTimeout);
+        response = await request.close().timeout(stallTimeout);
+      } on Object {
+        await file.close();
+        rethrow;
+      }
       if (response.statusCode != HttpStatus.ok) {
-        await response.drain<void>();
+        // Bounded like the body below. The timeout is raised as an error
+        // event, which cancels the drain and with it the connection; a
+        // timeout on the drain's future would leave both running.
+        await file.close();
+        try {
+          await response.timeout(stallTimeout).drain<void>();
+        } on TimeoutException {
+          // The status is the news; an error page that stalls is not.
+        }
         throw ModelDownloadException(
           'server refused to serve the model',
           uri: url,
@@ -250,17 +304,23 @@ class ModelDownloader {
           ? response.contentLength
           : null;
       var received = 0;
-      final sink = partial.openWrite();
+      // Each chunk is written and awaited before the next is read. An IOSink
+      // reports a failed write only when it is closed, and until then the
+      // failure was an unhandled error that took the isolate down instead
+      // of reaching the catch below — a read-only directory or a full disk
+      // never became the documented exception. Awaiting also stops a fast
+      // network from queueing the whole model in memory ahead of the disk.
       try {
         await for (final chunk in response.timeout(stallTimeout)) {
-          sink.add(chunk);
+          await file.writeFrom(chunk);
           received += chunk.length;
           onProgress?.call(DownloadProgress(model, received, total));
         }
       } finally {
-        await sink.close();
+        await file.close();
       }
 
+      finished = true;
       await _verifyWhole(partial, model, received, total);
       if (target.existsSync()) {
         await target.delete();
@@ -292,6 +352,14 @@ class ModelDownloader {
     } on Object {
       await _discard(partial);
       rethrow;
+    } finally {
+      // Whatever ended the download early — a timeout, a failed write, the
+      // caller's own onProgress — the request goes with it. Left alone, a
+      // server that never answers, or a body nobody reads, keeps its socket
+      // and the process alive long after the caller was told.
+      if (!finished) {
+        request?.abort();
+      }
     }
   }
 
@@ -303,9 +371,11 @@ class ModelDownloader {
     }
   }
 
-  /// How many attempts this isolate has made, so that two of them never
-  /// pick the same scratch file.
-  static var _attempts = 0;
+  static final _random = Random.secure();
+
+  /// Eight random hex digits for a scratch file name.
+  static String _scratchToken() =>
+      _random.nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
 
   /// Removes scratch files left by a run that was killed outright.
   ///
@@ -322,11 +392,16 @@ class ModelDownloader {
     }
 
     final cutoff = DateTime.now().subtract(_staleAfter);
-    final prefix = '${target.path}.';
+    // Compared by name, not by path: the listing spells the directory its
+    // own way, and `models//` or `./models` never matched it as text.
+    final prefix = '${_nameOf(target.path)}.';
     for (final entry in directory.listSync()) {
-      if (entry is! File ||
-          !entry.path.startsWith(prefix) ||
-          !entry.path.endsWith('.part')) {
+      if (entry is! File) {
+        continue;
+      }
+
+      final name = _nameOf(entry.path);
+      if (!name.startsWith(prefix) || !name.endsWith('.part')) {
         continue;
       }
 
@@ -338,6 +413,13 @@ class ModelDownloader {
         // Someone else's leftovers, or someone else got there first.
       }
     }
+  }
+
+  /// The last segment of [path], whichever separator it was written with.
+  static String _nameOf(String path) {
+    final cut = path.lastIndexOf(RegExp(r'[/\\]'));
+
+    return cut < 0 ? path : path.substring(cut + 1);
   }
 
   static Future<void> _discard(File partial) async {

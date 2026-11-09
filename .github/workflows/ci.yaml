@@ -37,12 +37,8 @@ jobs:
 
       # Everything that does not need dart:io runs on dart2js as well, where
       # 64-bit arithmetic and the n-gram hashes are a different problem.
+      # The suites that need dart:io are marked @TestOn('vm') and skip
+      # themselves, so a new web-safe suite is picked up without a list here
+      # to forget it in.
       - name: Test on the web
-        run: >
-          dart test -p chrome
-          test/binary_reader_test.dart
-          test/dictionary_test.dart
-          test/dictionary_memory_test.dart
-          test/model_validation_test.dart
-          test/synthetic_model_test.dart
-          test/word_ngrams_test.dart
+        run: dart test -p chrome

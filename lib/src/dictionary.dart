@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'binary_reader.dart';
 import 'model_args.dart';
+import 'platform.dart';
 
 /// The model dictionary: words, labels and the rules that turn a line of
 /// text into vector indices.
@@ -24,7 +25,13 @@ class Dictionary {
     this._index,
     this._pruneIndexSize,
     this._pruneIndex,
-  ) : _subwordCache = List<List<int>?>.filled(wordCount, null);
+  ) : _subwordCache = List<Int32List?>.filled(wordCount, null),
+      _eosId = _index.lookup(
+        _eosBytes,
+        0,
+        _eosBytes.length,
+        hash(_eosBytes, 0, _eosBytes.length),
+      );
 
   factory Dictionary.read(BinaryReader reader, ModelArgs args) {
     final size = reader.int32();
@@ -37,7 +44,6 @@ class Dictionary {
     final words = <Uint8List>[];
     final counts = List<int>.filled(size, 0);
     final types = Uint8List(size);
-    final index = <String, int>{};
     for (var i = 0; i < size; i++) {
       // Copied, not viewed. A view keeps the whole source buffer alive for
       // as long as the dictionary lives, and for a dense model that buffer
@@ -47,14 +53,25 @@ class Dictionary {
       words.add(word);
       counts[i] = reader.int64();
       types[i] = reader.uint8(); // entry_type is exactly one byte
-      index[String.fromCharCodes(word)] = i;
     }
 
-    final pruneIndex = <int, int>{};
+    final index = _WordTable(words);
+    final pruneIndex = _IntTable(pruneIndexSize < 0 ? 0 : pruneIndexSize);
     for (var i = 0; i < pruneIndexSize; i++) {
       final from = reader.int32();
       final to = reader.int32();
-      pruneIndex[from] = to;
+      // A negative row would land among the words' own rows, quietly
+      // scoring the wrong vector.
+      if (to < 0) {
+        throw FormatException(
+          'the prune index maps bucket $from to row $to',
+        );
+      }
+      // A negative bucket is never looked up: hashes are taken modulo the
+      // table size.
+      if (from >= 0) {
+        pruneIndex.put(from, to);
+      }
     }
 
     return Dictionary._(
@@ -112,7 +129,10 @@ class Dictionary {
       );
     }
 
-    if (pruneIndexSize < -1 || pruneIndexSize * 8 > reader.remaining) {
+    // Divided rather than multiplied: the size is an untrusted int64, and
+    // the product wraps on the VM — 2^61 + 1 entries pass as 8 bytes, and
+    // size a table nothing could allocate.
+    if (pruneIndexSize < -1 || pruneIndexSize > reader.remaining ~/ 8) {
       throw FormatException(
         'the prune index size is out of range: '
         '$pruneIndexSize',
@@ -148,20 +168,22 @@ class Dictionary {
   final List<int> _counts;
   final Uint8List _types;
 
-  /// Word to index. The key is the raw bytes with one byte per code unit,
-  /// which is a bijection — unlike UTF-8 decoding, where malformed bytes
-  /// would collapse into U+FFFD and produce false matches.
-  final Map<String, int> _index;
+  /// Word to index, looked up by the raw bytes — never decoded, since
+  /// malformed UTF-8 would collapse into U+FFFD and produce false matches.
+  final _WordTable _index;
 
-  /// The prune map size as stored in the file: -1 means the model is not
+  /// The prune index size as stored in the file: -1 means the model is not
   /// pruned, 0 means it is pruned down to nothing (every character n-gram is
   /// dropped), and a positive value is the size of the remapping.
   final int _pruneIndexSize;
 
   /// Remapping of n-gram buckets after pruning (quantized models only).
-  final Map<int, int> _pruneIndex;
+  final _IntTable _pruneIndex;
 
-  final List<List<int>?> _subwordCache;
+  final List<Int32List?> _subwordCache;
+
+  /// Where the end-of-sentence token is in the dictionary, or -1.
+  final int _eosId;
   var _wrapBuffer = Uint8List(_initialWrapBuffer);
 
   static const _initialWrapBuffer = 64;
@@ -183,6 +205,37 @@ class Dictionary {
 
   /// `true` when the dictionary has been pruned, as in `lid.176.ftz`.
   bool get isPruned => _pruneIndexSize >= 0;
+
+  /// The fewest input-matrix rows that every index [lineToIndices] can
+  /// produce stays inside of.
+  ///
+  /// The words take the first [wordCount] rows. A model that hashes
+  /// n-grams adds the hash table after them: all of it when unpruned, and
+  /// up to the highest row the prune index maps to when pruned.
+  int get inputRowsNeeded {
+    final hashesNgrams = _args.maxCharNgram > 0 || _args.wordNgrams > 1;
+    if (!hashesNgrams || _pruneIndexSize == 0) {
+      return wordCount;
+    }
+
+    if (_pruneIndexSize < 0) {
+      return wordCount + _args.bucket;
+    }
+
+    return wordCount + _pruneIndex.highestValue() + 1;
+  }
+
+  /// Whether [indices], as [lineToIndices] returned them, hold anything but
+  /// the end-of-sentence token that fastText appends to every line.
+  bool hasContent(List<int> indices) {
+    for (final index in indices) {
+      if (index != _eosId) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   /// Model labels in index order, with the `__label__` prefix.
   List<String> get labels => [
@@ -207,19 +260,31 @@ class Dictionary {
   /// FNV-1a exactly as fastText computes it: each byte is cast to a signed
   /// `int8_t`, so high UTF-8 bytes are sign-extended.
   static int hash(Uint8List data, int start, int end) {
-    var h = 2166136261;
+    var h = _fnvOffset;
     for (var i = start; i < end; i++) {
-      final byte = data[i];
-      h = (h ^ (byte <= 127 ? byte : 0xFFFFFF00 | byte)) & 0xFFFFFFFF;
-      h = _multiplyMod32(h, 16777619);
+      h = _fnvStep(h, data[i]);
     }
 
     return h;
   }
 
-  /// `a * b mod 2^32`. On the web `int` is a double, and the product of two
-  /// 32-bit numbers does not fit in a 53-bit mantissa, so multiply by
-  /// halves.
+  static const _fnvOffset = 2166136261;
+  static const _fnvPrime = 16777619;
+
+  /// One byte of FNV-1a.
+  @pragma('vm:prefer-inline')
+  static int _fnvStep(int h, int byte) {
+    final mixed = (h ^ (byte <= 127 ? byte : 0xFFFFFF00 | byte)) & 0xFFFFFFFF;
+
+    return numbersAreDoubles
+        ? _multiplyMod32(mixed, _fnvPrime)
+        : (mixed * _fnvPrime) & 0xFFFFFFFF;
+  }
+
+  /// `a * b mod 2^32`. On the web the product of two 32-bit numbers does
+  /// not fit in a 53-bit mantissa, so multiply by halves. On the VM it fits
+  /// in 64 bits — the prime is 25 bits wide — and [_fnvStep] multiplies
+  /// directly.
   static int _multiplyMod32(int a, int b) {
     final low = (a & 0xFFFF) * b;
     final high = ((a >>> 16) * b) & 0xFFFF;
@@ -256,7 +321,7 @@ class Dictionary {
       }
 
       _addToken(indices, bytes, start, i, wordHashes);
-      if (_equals(bytes, start, i, _eosBytes)) {
+      if (_sameBytes(bytes, start, i, _eosBytes)) {
         break;
       }
     }
@@ -296,21 +361,6 @@ class Dictionary {
 
   static final _eosBytes = Uint8List.fromList(utf8.encode(endOfSentence));
 
-  /// Whether [text] holds nothing a model could look at: no character other
-  /// than the ones fastText splits words on.
-  ///
-  /// Every separator is ASCII, so code units are enough — anything else is
-  /// content, whatever it encodes to.
-  static bool isBlank(String text) {
-    for (var i = 0; i < text.length; i++) {
-      if (!_isSeparator(text.codeUnitAt(i))) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   static bool _isSeparator(int byte) =>
       byte == 0x20 || // space
       byte == 0x0a || // \n
@@ -319,20 +369,6 @@ class Dictionary {
       byte == 0x0b || // \v
       byte == 0x0c || // \f
       byte == 0x00;
-
-  static bool _equals(Uint8List data, int start, int end, Uint8List other) {
-    if (end - start != other.length) {
-      return false;
-    }
-
-    for (var i = 0; i < other.length; i++) {
-      if (data[start + i] != other[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
 
   Uint8List _encodeLine(String text, bool joinLines) {
     final encoded = utf8.encode(text);
@@ -363,18 +399,23 @@ class Dictionary {
     int end,
     List<int>? wordHashes,
   ) {
-    final wordId = _index[String.fromCharCodes(data, start, end)];
-    if (wordId == null) {
+    // A miss is the common case for lid.176, whose dictionary is small and
+    // leans on n-grams; looking up by bytes spares a string per token.
+    final tokenHash = hash(data, start, end);
+    final wordId = _index.lookup(data, start, end, tokenHash);
+    if (wordId < 0) {
       // Unknown word: labels appearing in the text being predicted are
       // ignored, everything else is broken into character n-grams.
       if (_hasLabelPrefix(data, start, end)) {
         return;
       }
 
-      wordHashes?.add(hash(data, start, end));
+      wordHashes?.add(tokenHash);
       // The end-of-sentence token is the one word fastText never takes the
-      // subwords of, even when the dictionary has lost it.
-      if (!_equals(data, start, end, _eosBytes)) {
+      // subwords of, even when the dictionary has lost it. A model without
+      // character n-grams has none to take, and the copy into the scratch
+      // buffer would be wasted on every unknown word.
+      if (_args.maxCharNgram > 0 && !_sameBytes(data, start, end, _eosBytes)) {
         final wrapped = _wrap(data, start, end);
         _computeSubwords(wrapped, 0, end - start + 2, indices);
       }
@@ -386,7 +427,7 @@ class Dictionary {
       return;
     }
 
-    wordHashes?.add(hash(data, start, end));
+    wordHashes?.add(tokenHash);
     if (_args.maxCharNgram <= 0) {
       indices.add(wordId);
     } else {
@@ -436,47 +477,52 @@ class Dictionary {
     return _wrapBuffer;
   }
 
-  List<int> _subwordsOf(int wordId) {
+  Int32List _subwordsOf(int wordId) {
     final cached = _subwordCache[wordId];
     if (cached != null) {
       return cached;
     }
 
     final subwords = <int>[wordId];
-    if (!_equals(_words[wordId], 0, _words[wordId].length, _eosBytes)) {
+    if (!_sameBytes(_words[wordId], 0, _words[wordId].length, _eosBytes)) {
       final word = _words[wordId];
       final wrapped = _wrap(word, 0, word.length);
       _computeSubwords(wrapped, 0, word.length + 2, subwords);
     }
 
-    _subwordCache[wordId] = subwords;
+    // Packed: a growable list holds twice the room it needs, at twice the
+    // width, and the cache lives as long as the model.
+    final packed = Int32List.fromList(subwords);
+    _subwordCache[wordId] = packed;
 
-    return subwords;
+    return packed;
   }
 
   /// Character n-grams of length `minCharNgram` to `maxCharNgram`. Length is
   /// counted in UTF-8 characters rather than bytes: continuation bytes of
   /// multi-byte sequences (`10xxxxxx`) are skipped.
+  ///
+  /// There is no guard on the table size: ModelArgs.read refuses a model
+  /// that asks for character n-grams without a table to hash them into.
   void _computeSubwords(Uint8List word, int start, int end, List<int> out) {
-    // A model trained without an n-gram table has nowhere to put them.
-    if (_args.bucket <= 0) {
-      return;
-    }
     for (var i = start; i < end; i++) {
       if ((word[i] & 0xC0) == 0x80) {
         continue;
       }
 
+      // FNV-1a folds one byte at a time, so the hash of each n-gram from i
+      // carries on from the one before it rather than starting over.
+      var h = _fnvOffset;
       var j = i;
       for (var n = 1; j < end && n <= _args.maxCharNgram; n++) {
-        j++;
+        h = _fnvStep(h, word[j++]);
 
         while (j < end && (word[j] & 0xC0) == 0x80) {
-          j++;
+          h = _fnvStep(h, word[j++]);
         }
 
         if (n >= _args.minCharNgram && !(n == 1 && (i == start || j == end))) {
-          _pushHash(out, hash(word, i, j) % _args.bucket);
+          _pushHash(out, h % _args.bucket);
         }
       }
     }
@@ -491,8 +537,8 @@ class Dictionary {
 
     var row = bucketId;
     if (_pruneIndexSize > 0) {
-      final mapped = _pruneIndex[bucketId];
-      if (mapped == null) {
+      final mapped = _pruneIndex.get(bucketId);
+      if (mapped < 0) {
         return;
       }
 
@@ -555,5 +601,145 @@ class _Uint64 {
     rest = (rest * _twoTo16 + _low ~/ _twoTo16) % divisor;
 
     return (rest * _twoTo16 + _low % _twoTo16) % divisor;
+  }
+}
+
+/// Whether `data[start, end)` holds exactly the bytes of [other].
+bool _sameBytes(Uint8List data, int start, int end, Uint8List other) {
+  if (end - start != other.length) {
+    return false;
+  }
+
+  for (var i = 0; i < other.length; i++) {
+    if (data[start + i] != other[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// The most entries an open-addressing table here is built for. Far past
+/// any real model — `lid.176.bin` has 40,186 words — and small enough that
+/// the capacity, twice this, cannot overflow anywhere an `int` is 32 bits
+/// wide or a double.
+const int _maxTableEntries = 1 << 28;
+
+/// Slots for [entries]: a power of two at least twice that, so probes stay
+/// short, every one of them empty (-1).
+///
+/// The callers bound [entries] by what the file can hold, so this refusing
+/// is the last line rather than the check a corrupt model meets first.
+Int32List _emptySlots(int entries) {
+  if (entries < 0 || entries > _maxTableEntries) {
+    throw FormatException('a table of $entries entries cannot be built');
+  }
+
+  var capacity = 16;
+  while (capacity < entries * 2) {
+    capacity *= 2;
+  }
+
+  return Int32List(capacity)..fillRange(0, capacity, -1);
+}
+
+/// Word bytes to dictionary index: open addressing over the FNV hash, the
+/// way fastText's own `word2int_` works, so a lookup needs no string.
+class _WordTable {
+  _WordTable(this._words) : _slots = _emptySlots(_words.length) {
+    for (var id = 0; id < _words.length; id++) {
+      _insert(id);
+    }
+  }
+
+  final List<Uint8List> _words;
+  final Int32List _slots;
+
+  /// Adds the word at [id]. A word seen before takes the later index, as a
+  /// map assignment would.
+  void _insert(int id) {
+    final word = _words[id];
+    final mask = _slots.length - 1;
+    var slot = Dictionary.hash(word, 0, word.length) & mask;
+    while (true) {
+      final existing = _slots[slot];
+      if (existing < 0 || _sameBytes(word, 0, word.length, _words[existing])) {
+        _slots[slot] = id;
+
+        return;
+      }
+      slot = (slot + 1) & mask;
+    }
+  }
+
+  /// The index of the word in `data[start, end)`, whose [Dictionary.hash]
+  /// is [hash], or -1. The caller passes the hash in because a model with
+  /// word n-grams needs it as well, and hashing the token twice was half
+  /// the cost of a lookup.
+  int lookup(Uint8List data, int start, int end, int hash) {
+    final mask = _slots.length - 1;
+    var slot = hash & mask;
+    while (true) {
+      final id = _slots[slot];
+      if (id < 0 || _sameBytes(data, start, end, _words[id])) {
+        return id;
+      }
+      slot = (slot + 1) & mask;
+    }
+  }
+}
+
+/// A map from non-negative int32 keys to int32 values, in two flat lists.
+/// The prune index of `lid.176.ftz` has 42,765 entries and is read for every
+/// n-gram of every text.
+class _IntTable {
+  _IntTable(int entries) : this._(_emptySlots(entries));
+
+  _IntTable._(this._keys) : _values = Int32List(_keys.length);
+
+  final Int32List _keys;
+  final Int32List _values;
+
+  /// Stores [value] for [key], replacing any earlier value, as a map
+  /// assignment would. [key] must not be negative: -1 marks an empty slot.
+  void put(int key, int value) {
+    final mask = _keys.length - 1;
+    // The keys are bucket ids, themselves the output of a hash, so their
+    // low bits are already spread.
+    var slot = key & mask;
+    while (_keys[slot] >= 0 && _keys[slot] != key) {
+      slot = (slot + 1) & mask;
+    }
+    _keys[slot] = key;
+    _values[slot] = value;
+  }
+
+  /// The value stored for [key], or -1.
+  int get(int key) {
+    final mask = _keys.length - 1;
+    var slot = key & mask;
+    while (true) {
+      final stored = _keys[slot];
+      if (stored == key) {
+        return _values[slot];
+      }
+      if (stored < 0) {
+        return -1;
+      }
+      slot = (slot + 1) & mask;
+    }
+  }
+
+  /// The largest value stored, or -1 when there is none. Taken over what
+  /// the table holds now, so a key written twice counts only its last value.
+  int highestValue() {
+    var highest = -1;
+    for (var slot = 0; slot < _keys.length; slot++) {
+      if (_keys[slot] >= 0 && _values[slot] > highest) {
+        highest = _values[slot];
+      }
+    }
+
+    return highest;
   }
 }
