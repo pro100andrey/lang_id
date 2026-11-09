@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'binary_reader.dart';
 import 'model_args.dart';
+import 'platform.dart';
 
 /// The model dictionary: words, labels and the rules that turn a line of
 /// text into vector indices.
@@ -25,7 +26,12 @@ class Dictionary {
     this._pruneIndexSize,
     this._pruneIndex,
   ) : _subwordCache = List<Int32List?>.filled(wordCount, null),
-      _eosId = _index.lookup(_eosBytes, 0, _eosBytes.length);
+      _eosId = _index.lookup(
+        _eosBytes,
+        0,
+        _eosBytes.length,
+        hash(_eosBytes, 0, _eosBytes.length),
+      );
 
   factory Dictionary.read(BinaryReader reader, ModelArgs args) {
     final size = reader.int32();
@@ -123,7 +129,10 @@ class Dictionary {
       );
     }
 
-    if (pruneIndexSize < -1 || pruneIndexSize * 8 > reader.remaining) {
+    // Divided rather than multiplied: the size is an untrusted int64, and
+    // the product wraps on the VM — 2^61 + 1 entries pass as 8 bytes, and
+    // size a table nothing could allocate.
+    if (pruneIndexSize < -1 || pruneIndexSize > reader.remaining ~/ 8) {
       throw FormatException(
         'the prune index size is out of range: '
         '$pruneIndexSize',
@@ -213,7 +222,7 @@ class Dictionary {
       return wordCount + _args.bucket;
     }
 
-    return wordCount + _pruneIndex.highestValue + 1;
+    return wordCount + _pruneIndex.highestValue() + 1;
   }
 
   /// Whether [indices], as [lineToIndices] returned them, hold anything but
@@ -267,14 +276,10 @@ class Dictionary {
   static int _fnvStep(int h, int byte) {
     final mixed = (h ^ (byte <= 127 ? byte : 0xFFFFFF00 | byte)) & 0xFFFFFFFF;
 
-    return _numbersAreDoubles
+    return numbersAreDoubles
         ? _multiplyMod32(mixed, _fnvPrime)
         : (mixed * _fnvPrime) & 0xFFFFFFFF;
   }
-
-  /// `true` on the web, where `int` is a double. A constant, so each build
-  /// keeps only its own branch of [_fnvStep].
-  static const bool _numbersAreDoubles = identical(1, 1.0);
 
   /// `a * b mod 2^32`. On the web the product of two 32-bit numbers does
   /// not fit in a 53-bit mantissa, so multiply by halves. On the VM it fits
@@ -316,7 +321,7 @@ class Dictionary {
       }
 
       _addToken(indices, bytes, start, i, wordHashes);
-      if (_equals(bytes, start, i, _eosBytes)) {
+      if (_sameBytes(bytes, start, i, _eosBytes)) {
         break;
       }
     }
@@ -365,20 +370,6 @@ class Dictionary {
       byte == 0x0c || // \f
       byte == 0x00;
 
-  static bool _equals(Uint8List data, int start, int end, Uint8List other) {
-    if (end - start != other.length) {
-      return false;
-    }
-
-    for (var i = 0; i < other.length; i++) {
-      if (data[start + i] != other[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   Uint8List _encodeLine(String text, bool joinLines) {
     final encoded = utf8.encode(text);
     final bytes = Uint8List(encoded.length + 1)
@@ -410,7 +401,8 @@ class Dictionary {
   ) {
     // A miss is the common case for lid.176, whose dictionary is small and
     // leans on n-grams; looking up by bytes spares a string per token.
-    final wordId = _index.lookup(data, start, end);
+    final tokenHash = hash(data, start, end);
+    final wordId = _index.lookup(data, start, end, tokenHash);
     if (wordId < 0) {
       // Unknown word: labels appearing in the text being predicted are
       // ignored, everything else is broken into character n-grams.
@@ -418,12 +410,12 @@ class Dictionary {
         return;
       }
 
-      wordHashes?.add(hash(data, start, end));
+      wordHashes?.add(tokenHash);
       // The end-of-sentence token is the one word fastText never takes the
       // subwords of, even when the dictionary has lost it. A model without
       // character n-grams has none to take, and the copy into the scratch
       // buffer would be wasted on every unknown word.
-      if (_args.maxCharNgram > 0 && !_equals(data, start, end, _eosBytes)) {
+      if (_args.maxCharNgram > 0 && !_sameBytes(data, start, end, _eosBytes)) {
         final wrapped = _wrap(data, start, end);
         _computeSubwords(wrapped, 0, end - start + 2, indices);
       }
@@ -435,7 +427,7 @@ class Dictionary {
       return;
     }
 
-    wordHashes?.add(hash(data, start, end));
+    wordHashes?.add(tokenHash);
     if (_args.maxCharNgram <= 0) {
       indices.add(wordId);
     } else {
@@ -492,7 +484,7 @@ class Dictionary {
     }
 
     final subwords = <int>[wordId];
-    if (!_equals(_words[wordId], 0, _words[wordId].length, _eosBytes)) {
+    if (!_sameBytes(_words[wordId], 0, _words[wordId].length, _eosBytes)) {
       final word = _words[wordId];
       final wrapped = _wrap(word, 0, word.length);
       _computeSubwords(wrapped, 0, word.length + 2, subwords);
@@ -612,10 +604,49 @@ class _Uint64 {
   }
 }
 
+/// Whether `data[start, end)` holds exactly the bytes of [other].
+bool _sameBytes(Uint8List data, int start, int end, Uint8List other) {
+  if (end - start != other.length) {
+    return false;
+  }
+
+  for (var i = 0; i < other.length; i++) {
+    if (data[start + i] != other[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/// The most entries an open-addressing table here is built for. Far past
+/// any real model — `lid.176.bin` has 40,186 words — and small enough that
+/// the capacity, twice this, cannot overflow anywhere an `int` is 32 bits
+/// wide or a double.
+const int _maxTableEntries = 1 << 28;
+
+/// Slots for [entries]: a power of two at least twice that, so probes stay
+/// short, every one of them empty (-1).
+///
+/// The callers bound [entries] by what the file can hold, so this refusing
+/// is the last line rather than the check a corrupt model meets first.
+Int32List _emptySlots(int entries) {
+  if (entries < 0 || entries > _maxTableEntries) {
+    throw FormatException('a table of $entries entries cannot be built');
+  }
+
+  var capacity = 16;
+  while (capacity < entries * 2) {
+    capacity *= 2;
+  }
+
+  return Int32List(capacity)..fillRange(0, capacity, -1);
+}
+
 /// Word bytes to dictionary index: open addressing over the FNV hash, the
 /// way fastText's own `word2int_` works, so a lookup needs no string.
 class _WordTable {
-  _WordTable(this._words) : _slots = _emptySlots(_capacityFor(_words.length)) {
+  _WordTable(this._words) : _slots = _emptySlots(_words.length) {
     for (var id = 0; id < _words.length; id++) {
       _insert(id);
     }
@@ -623,19 +654,6 @@ class _WordTable {
 
   final List<Uint8List> _words;
   final Int32List _slots;
-
-  static Int32List _emptySlots(int capacity) =>
-      Int32List(capacity)..fillRange(0, capacity, -1);
-
-  /// A power of two at least twice [entries], so probes stay short.
-  static int _capacityFor(int entries) {
-    var capacity = 16;
-    while (capacity < entries * 2) {
-      capacity *= 2;
-    }
-
-    return capacity;
-  }
 
   /// Adds the word at [id]. A word seen before takes the later index, as a
   /// map assignment would.
@@ -654,10 +672,13 @@ class _WordTable {
     }
   }
 
-  /// The index of the word in `data[start, end)`, or -1.
-  int lookup(Uint8List data, int start, int end) {
+  /// The index of the word in `data[start, end)`, whose [Dictionary.hash]
+  /// is [hash], or -1. The caller passes the hash in because a model with
+  /// word n-grams needs it as well, and hashing the token twice was half
+  /// the cost of a lookup.
+  int lookup(Uint8List data, int start, int end, int hash) {
     final mask = _slots.length - 1;
-    var slot = Dictionary.hash(data, start, end) & mask;
+    var slot = hash & mask;
     while (true) {
       final id = _slots[slot];
       if (id < 0 || _sameBytes(data, start, end, _words[id])) {
@@ -666,36 +687,21 @@ class _WordTable {
       slot = (slot + 1) & mask;
     }
   }
-
-  static bool _sameBytes(Uint8List data, int start, int end, Uint8List word) {
-    if (end - start != word.length) {
-      return false;
-    }
-
-    for (var i = 0; i < word.length; i++) {
-      if (data[start + i] != word[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
 }
 
-/// A map from non-negative int32 keys to non-negative int32 values, in two
-/// flat lists. The prune index of `lid.176.ftz` has 42,765 entries and is
-/// read for every n-gram of every text.
+/// A map from non-negative int32 keys to int32 values, in two flat lists.
+/// The prune index of `lid.176.ftz` has 42,765 entries and is read for every
+/// n-gram of every text.
 class _IntTable {
-  _IntTable(int entries)
-    : _keys = _WordTable._emptySlots(_WordTable._capacityFor(entries)),
-      _values = Int32List(_WordTable._capacityFor(entries));
+  _IntTable(int entries) : this._(_emptySlots(entries));
+
+  _IntTable._(this._keys) : _values = Int32List(_keys.length);
 
   final Int32List _keys;
   final Int32List _values;
 
-  /// The largest value stored, or -1 when there is none.
-  var highestValue = -1;
-
+  /// Stores [value] for [key], replacing any earlier value, as a map
+  /// assignment would. [key] must not be negative: -1 marks an empty slot.
   void put(int key, int value) {
     final mask = _keys.length - 1;
     // The keys are bucket ids, themselves the output of a hash, so their
@@ -706,9 +712,6 @@ class _IntTable {
     }
     _keys[slot] = key;
     _values[slot] = value;
-    if (value > highestValue) {
-      highestValue = value;
-    }
   }
 
   /// The value stored for [key], or -1.
@@ -725,5 +728,18 @@ class _IntTable {
       }
       slot = (slot + 1) & mask;
     }
+  }
+
+  /// The largest value stored, or -1 when there is none. Taken over what
+  /// the table holds now, so a key written twice counts only its last value.
+  int highestValue() {
+    var highest = -1;
+    for (var slot = 0; slot < _keys.length; slot++) {
+      if (_keys[slot] >= 0 && _values[slot] > highest) {
+        highest = _values[slot];
+      }
+    }
+
+    return highest;
   }
 }

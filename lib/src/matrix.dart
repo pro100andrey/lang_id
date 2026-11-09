@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'binary_reader.dart';
 import 'float32.dart';
+import 'platform.dart';
 
 /// A matrix of model vectors.
 ///
@@ -31,10 +32,6 @@ abstract class Matrix {
   /// means the weights are not either.
   double dotRow(Float32List vector, int row);
 }
-
-/// `true` on the web, where `int` is a double and [Float32x4] is emulated
-/// in software, slower than the plain loop it would replace.
-const bool _numbersAreDoubles = identical(1, 1.0);
 
 /// Refuses a score that is not a finite number.
 ///
@@ -67,7 +64,7 @@ class DenseMatrix implements Matrix {
     : _lanes =
           columns % 4 == 0 &&
               _data.offsetInBytes % 16 == 0 &&
-              !_numbersAreDoubles
+              !numbersAreDoubles
           ? Float32x4List.view(
               _data.buffer,
               _data.offsetInBytes,
@@ -105,6 +102,8 @@ class DenseMatrix implements Matrix {
   /// boundary — `lid.176.bin` has 16 columns. A float32 sum rounds the same
   /// whether it is taken alone or in a lane, and each lane still adds its
   /// rows in order, so this changes the speed and not one bit of the answer.
+  /// Not on the web, where [Float32x4] is emulated in software and slower
+  /// than the plain loop.
   final Float32x4List? _lanes;
 
   @override
